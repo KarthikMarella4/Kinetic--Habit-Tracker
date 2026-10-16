@@ -62,7 +62,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-      <div className="w-full max-w-[440px] bg-stone-50 dark:bg-zinc-900 border-t sm:border border-zinc-300 dark:border-zinc-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl animate-pop max-h-[92vh] overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]">
+      <div className="w-full max-w-[440px] bg-white dark:bg-[#151619] border-t sm:border border-zinc-300 dark:border-zinc-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl animate-pop max-h-[92vh] overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]">
         {/* iOS Drag Handle */}
         <div className="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-3 sm:hidden" />
         <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -70,13 +70,14 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
             <span className="text-[10px] font-mono uppercase tracking-widest text-[#FF4F00] font-bold">
               PROTOCOL CONFIG
             </span>
-            <h3 className="text-lg font-extrabold tracking-tight">
+            <h3 className="text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">
               {editHabitId ? "Edit Habit Protocol" : "Create Daily Habit"}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
+            aria-label="Close"
+            className="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -93,7 +94,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., 45m System Design Study"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-sm font-medium focus:outline-none focus:border-[#FF4F00]"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
             />
           </div>
 
@@ -105,7 +106,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-sm font-medium focus:outline-none focus:border-[#FF4F00]"
+                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
               >
                 <option value="Deep Work">Deep Work</option>
                 <option value="Fitness">Fitness</option>
@@ -120,7 +121,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
               <select
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-sm font-medium focus:outline-none focus:border-[#FF4F00]"
+                className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
               >
                 <option value="#FF4F00">Swiss Orange</option>
                 <option value="#10B981">Emerald Green</option>
@@ -144,7 +145,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
                 value={target}
                 onChange={(e) => setTarget(parseInt(e.target.value) || 1)}
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-sm font-mono font-bold focus:outline-none focus:border-[#FF4F00]"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-mono font-bold focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
               />
               <span className="text-[10px] text-zinc-400 font-mono">1 = Simple check-off</span>
             </div>
@@ -157,7 +158,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 placeholder="e.g., glasses, pages"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-sm font-medium focus:outline-none focus:border-[#FF4F00]"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
               />
             </div>
           </div>

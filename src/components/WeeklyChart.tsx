@@ -15,8 +15,8 @@ export default function WeeklyChart() {
   const avg = habits.length > 0 ? Math.round(totalWeekPct / 7) : 0;
 
   return (
-    <section className="px-5 sm:px-6">
-      <div className="bg-white dark:bg-[#0c0d0f] border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl p-4 sm:p-5 shadow-xs dark:shadow-lg transition-colors">
+    <section className="px-3.5 sm:px-6">
+      <div className="bg-white dark:bg-[#0c0d0f] border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl p-3.5 sm:p-5 shadow-xs dark:shadow-lg transition-colors">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -42,7 +42,7 @@ export default function WeeklyChart() {
         </div>
 
         {/* 7-Day Interactive Bar Chart */}
-        <div className="grid grid-cols-7 gap-2 items-end h-28 pt-4 pb-1 border-b border-zinc-200/90 dark:border-zinc-800/80">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 items-end h-28 pt-4 pb-1 border-b border-zinc-200/90 dark:border-zinc-800/80">
           {dayData.map((day) => {
             const isSelected = day.iso === selectedDayIso;
             const isComplete = day.pct === 100 && habits.length > 0;
@@ -74,7 +74,7 @@ export default function WeeklyChart() {
         </div>
 
         {/* Day Labels Mon-Sun */}
-        <div className="grid grid-cols-7 gap-2 pt-2.5 text-center">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 pt-2.5 text-center">
           {dayData.map((day) => {
             const isSelected = day.iso === selectedDayIso;
             return (

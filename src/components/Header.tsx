@@ -25,7 +25,7 @@ export default function Header() {
   const offset = circumference - (pct / 100) * circumference;
 
   return (
-    <header className="px-5 sm:px-6 pt-5 pb-3">
+    <header className="px-4 sm:px-6 pt-4 sm:pt-5 pb-2.5 sm:pb-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           {/* Top Badge: 24D STREAK */}

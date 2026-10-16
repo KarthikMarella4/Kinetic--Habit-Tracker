@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Habit, DayInfo } from "@/lib/types";
 import { getCurrentWeekDays, getFallbackWeekDays, getWeekDaysForDate } from "@/lib/dates";
+import { createDefaultDemoHabits } from "@/lib/demoData";
 
 interface HabitsContextType {
   habits: Habit[];
@@ -41,6 +42,10 @@ interface HabitsContextType {
 
 const HabitsContext = createContext<HabitsContextType | null>(null);
 
+const STORAGE_KEY = "kinetic_habits_v3";
+const FRESH_START_KEY = "kinetic_fresh_started";
+const USER_NAME_KEY = "kinetic_user_name";
+
 export function useHabits() {
   const ctx = useContext(HabitsContext);
   if (!ctx) throw new Error("useHabits must be used within HabitsProvider");
@@ -58,19 +63,12 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const [selectedDayIso, setSelectedDayIso] = useState(todayObj.iso);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [activeTab, setActiveTab] = useState<"dashboard" | "analytics">("dashboard");
+  const [weekOffset, setWeekOffset] = useState(0);
 
-  useEffect(() => {
+  // Safe local storage helper
+  const saveLocalHabits = useCallback((items: Habit[]) => {
     try {
-      const savedName = localStorage.getItem("kinetic_user_name");
-      if (savedName) setUserNameState(savedName);
-    } catch (_) {}
-  }, []);
-
-  const setUserName = useCallback((name: string) => {
-    const trimmed = name.trim() || "Karthik Marella";
-    setUserNameState(trimmed);
-    try {
-      localStorage.setItem("kinetic_user_name", trimmed);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     } catch (_) {}
   }, []);
 
@@ -79,49 +77,75 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToast(null), 1800);
   }, []);
 
-  const fetchHabitsForDays = useCallback(async (days: DayInfo[]) => {
-    try {
-      const res = await fetch(`/api/habits?start=${days[0].iso}&end=${days[6].iso}`);
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      if (Array.isArray(data) && data.length === 0) {
-        let isFreshStarted = false;
-        try {
-          isFreshStarted = localStorage.getItem("kinetic_fresh_started") === "true";
-        } catch (_) {}
-
-        if (!isFreshStarted) {
-          try {
-            localStorage.setItem("kinetic_fresh_started", "true");
-          } catch (_) {}
-          await fetch("/api/habits/seed", { method: "POST" });
-          const seededRes = await fetch(`/api/habits?start=${days[0].iso}&end=${days[6].iso}`);
-          const seededData = await seededRes.json();
-          setHabits(seededData);
-        } else {
-          setHabits([]);
-        }
-      } else {
-        setHabits(data);
-      }
-    } catch (err) {
-      console.error("Fetch habits error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchHabits = useCallback(async () => {
-    await fetchHabitsForDays(weekDays);
-  }, [fetchHabitsForDays, weekDays]);
-
+  // Initialize habits on client mount
   useEffect(() => {
+    try {
+      const savedName = localStorage.getItem(USER_NAME_KEY);
+      if (savedName) setUserNameState(savedName);
+    } catch (_) {}
+
     const actualDays = getCurrentWeekDays();
     setWeekDays(actualDays);
     const today = actualDays.find((d) => d.isToday) || actualDays[4];
     setSelectedDayIso(today.iso);
-    fetchHabitsForDays(actualDays);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    let loadedHabits: Habit[] | null = null;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          loadedHabits = parsed;
+        }
+      }
+    } catch (_) {}
+
+    const isFreshStarted = (() => {
+      try {
+        return localStorage.getItem(FRESH_START_KEY) === "true";
+      } catch (_) {
+        return false;
+      }
+    })();
+
+    if (loadedHabits !== null) {
+      setHabits(loadedHabits);
+      setLoading(false);
+    } else if (isFreshStarted) {
+      setHabits([]);
+      saveLocalHabits([]);
+      setLoading(false);
+    } else {
+      // First visit: Seed demo habits automatically so the user immediately sees working data
+      const defaultDemo = createDefaultDemoHabits(actualDays);
+      setHabits(defaultDemo);
+      saveLocalHabits(defaultDemo);
+      setLoading(false);
+    }
+
+    // Best-effort background sync with local SQLite API if available
+    (async () => {
+      try {
+        const res = await fetch(`/api/habits?start=${actualDays[0].iso}&end=${actualDays[6].iso}`);
+        if (res.ok) {
+          const apiData = await res.json();
+          if (Array.isArray(apiData) && apiData.length > 0) {
+            setHabits(apiData);
+            saveLocalHabits(apiData);
+          }
+        }
+      } catch (_) {
+        // Netlify serverless / offline fallback: local storage already active
+      }
+    })();
+  }, [saveLocalHabits]);
+
+  const setUserName = useCallback((name: string) => {
+    const trimmed = name.trim() || "Karthik Marella";
+    setUserNameState(trimmed);
+    try {
+      localStorage.setItem(USER_NAME_KEY, trimmed);
+    } catch (_) {}
   }, []);
 
   const getLogValue = useCallback((habit: Habit, isoDate: string): number => {
@@ -166,11 +190,13 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
 
   const upsertLog = useCallback(
     async (habitId: string, date: string, value: number) => {
-      await fetch("/api/habits/log", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ habitId, date, value }),
-      });
+      try {
+        await fetch("/api/habits/log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ habitId, date, value }),
+        });
+      } catch (_) {}
     },
     []
   );
@@ -188,20 +214,23 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         newVal = current + 1;
         if (newVal === habit.target) showToast("Completed! +1 Streak 🔥");
       }
-      // Optimistic update
-      setHabits((prev) =>
-        prev.map((h) => {
+
+      setHabits((prev) => {
+        const next = prev.map((h) => {
           if (h.id !== habitId) return h;
-          const existingLog = h.logs.find((l) => l.date === selectedDayIso);
+          const existingLog = h.logs?.find((l) => l.date === selectedDayIso);
           const newLogs = existingLog
             ? h.logs.map((l) => (l.date === selectedDayIso ? { ...l, value: newVal } : l))
-            : [...h.logs, { id: "temp", habitId, date: selectedDayIso, value: newVal }];
+            : [...(h.logs || []), { id: `log_${Date.now()}`, habitId, date: selectedDayIso, value: newVal }];
           return { ...h, logs: newLogs };
-        })
-      );
+        });
+        saveLocalHabits(next);
+        return next;
+      });
+
       await upsertLog(habitId, selectedDayIso, newVal);
     },
-    [habits, selectedDayIso, getLogValue, upsertLog, showToast]
+    [habits, selectedDayIso, getLogValue, showToast, saveLocalHabits, upsertLog]
   );
 
   const decrementHabit = useCallback(
@@ -211,18 +240,22 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       const current = getLogValue(habit, selectedDayIso);
       if (current <= 0) return;
       const newVal = current - 1;
-      setHabits((prev) =>
-        prev.map((h) => {
+
+      setHabits((prev) => {
+        const next = prev.map((h) => {
           if (h.id !== habitId) return h;
           return {
             ...h,
-            logs: h.logs.map((l) => (l.date === selectedDayIso ? { ...l, value: newVal } : l)),
+            logs: (h.logs || []).map((l) => (l.date === selectedDayIso ? { ...l, value: newVal } : l)),
           };
-        })
-      );
+        });
+        saveLocalHabits(next);
+        return next;
+      });
+
       await upsertLog(habitId, selectedDayIso, newVal);
     },
-    [habits, selectedDayIso, getLogValue, upsertLog]
+    [habits, selectedDayIso, getLogValue, saveLocalHabits, upsertLog]
   );
 
   const toggleMatrixCell = useCallback(
@@ -231,68 +264,117 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       if (!habit) return;
       const current = getLogValue(habit, isoDate);
       const newVal = current >= habit.target ? 0 : habit.target;
-      setHabits((prev) =>
-        prev.map((h) => {
+
+      setHabits((prev) => {
+        const next = prev.map((h) => {
           if (h.id !== habitId) return h;
-          const existingLog = h.logs.find((l) => l.date === isoDate);
+          const existingLog = h.logs?.find((l) => l.date === isoDate);
           const newLogs = existingLog
             ? h.logs.map((l) => (l.date === isoDate ? { ...l, value: newVal } : l))
-            : [...h.logs, { id: "temp", habitId, date: isoDate, value: newVal }];
+            : [...(h.logs || []), { id: `log_${Date.now()}`, habitId, date: isoDate, value: newVal }];
           return { ...h, logs: newLogs };
-        })
-      );
-      await upsertLog(habitId, isoDate, newVal);
+        });
+        saveLocalHabits(next);
+        return next;
+      });
+
       showToast("Matrix Updated");
+      await upsertLog(habitId, isoDate, newVal);
     },
-    [habits, getLogValue, upsertLog, showToast]
+    [habits, getLogValue, showToast, saveLocalHabits, upsertLog]
   );
 
   const createHabit = useCallback(
     async (data: { name: string; category: string; color: string; target: number; unit: string }) => {
-      const res = await fetch("/api/habits", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      const newHabit: Habit = {
+        id: `habit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: data.name,
+        category: data.category,
+        color: data.color,
+        target: data.target,
+        unit: data.unit || "session",
+        streak: 0,
+        order: habits.length,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        logs: [],
+      };
+
+      setHabits((prev) => {
+        const next = [...prev, newHabit];
+        saveLocalHabits(next);
+        return next;
       });
-      if (res.ok) {
-        await fetchHabits();
-        showToast("New Protocol Added");
-      }
+
+      showToast("New Protocol Added");
+
+      // Background server sync if available
+      try {
+        await fetch("/api/habits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+      } catch (_) {}
     },
-    [fetchHabits, showToast]
+    [habits.length, saveLocalHabits, showToast]
   );
 
   const updateHabit = useCallback(
     async (id: string, data: { name: string; category: string; color: string; target: number; unit: string }) => {
-      const res = await fetch(`/api/habits/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      setHabits((prev) => {
+        const next = prev.map((h) =>
+          h.id === id ? { ...h, ...data, updatedAt: new Date().toISOString() } : h
+        );
+        saveLocalHabits(next);
+        return next;
       });
-      if (res.ok) {
-        await fetchHabits();
-        showToast("Habit Updated");
-      }
+
+      showToast("Habit Updated");
+
+      try {
+        await fetch(`/api/habits/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+      } catch (_) {}
     },
-    [fetchHabits, showToast]
+    [saveLocalHabits, showToast]
   );
 
   const deleteHabit = useCallback(
     async (id: string) => {
-      const res = await fetch(`/api/habits/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        await fetchHabits();
-        showToast("Habit Removed");
-      }
+      setHabits((prev) => {
+        const next = prev.filter((h) => h.id !== id);
+        saveLocalHabits(next);
+        return next;
+      });
+
+      showToast("Habit Removed");
+
+      try {
+        await fetch(`/api/habits/${id}`, { method: "DELETE" });
+      } catch (_) {}
     },
-    [fetchHabits, showToast]
+    [saveLocalHabits, showToast]
   );
 
-  const [weekOffset, setWeekOffset] = useState(0);
+  const fetchHabits = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/habits?start=${weekDays[0].iso}&end=${weekDays[6].iso}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setHabits(data);
+          saveLocalHabits(data);
+        }
+      }
+    } catch (_) {}
+  }, [weekDays, saveLocalHabits]);
 
   const changeWeek = useCallback(
-    async (offset: number) => {
-      setLoading(true);
+    (offset: number) => {
       setWeekOffset(offset);
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + offset * 7);
@@ -300,10 +382,8 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       setWeekDays(days);
       const todayInWeek = days.find((d) => d.isToday);
       setSelectedDayIso(todayInWeek ? todayInWeek.iso : days[0].iso);
-      await fetchHabitsForDays(days);
-      setLoading(false);
     },
-    [fetchHabitsForDays]
+    []
   );
 
   const goToPreviousWeek = useCallback(() => {
@@ -324,29 +404,38 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const seedDemo = useCallback(async () => {
     setLoading(true);
     try {
-      localStorage.removeItem("kinetic_fresh_started");
+      localStorage.removeItem(FRESH_START_KEY);
     } catch (_) {}
     setWeekOffset(0);
     const actualDays = getCurrentWeekDays();
     setWeekDays(actualDays);
-    await fetch("/api/habits/seed", { method: "POST" });
-    await fetchHabitsForDays(actualDays);
+    const demoHabits = createDefaultDemoHabits(actualDays);
+    saveLocalHabits(demoHabits);
+    setHabits(demoHabits);
     const today = actualDays.find((d) => d.isToday) || actualDays[4];
     setSelectedDayIso(today.iso);
     showToast("Demo Data Restored");
     setLoading(false);
-  }, [fetchHabitsForDays, showToast]);
+
+    try {
+      await fetch("/api/habits/seed", { method: "POST" });
+    } catch (_) {}
+  }, [saveLocalHabits, showToast]);
 
   const clearAllData = useCallback(async () => {
     setLoading(true);
     try {
-      localStorage.setItem("kinetic_fresh_started", "true");
+      localStorage.setItem(FRESH_START_KEY, "true");
     } catch (_) {}
-    await fetch("/api/habits/seed", { method: "DELETE" });
+    saveLocalHabits([]);
     setHabits([]);
     showToast("All Habits Cleared • Fresh Board Ready");
     setLoading(false);
-  }, [showToast]);
+
+    try {
+      await fetch("/api/habits/seed", { method: "DELETE" });
+    } catch (_) {}
+  }, [saveLocalHabits, showToast]);
 
   return (
     <HabitsContext.Provider

@@ -47,7 +47,7 @@ export default function StatusBar({ onOpenSettings }: StatusBarProps) {
   };
 
   return (
-    <div className="pt-[max(0.65rem,env(safe-area-inset-top,0px))] pb-2 px-4 sm:px-5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-[#18181b]/95 backdrop-blur-md z-20 transition-colors">
+    <div className="pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-2 px-3.5 sm:px-5 flex items-center justify-between border-b border-zinc-200/90 dark:border-zinc-800/80 bg-white/95 dark:bg-[#18181b]/95 backdrop-blur-md z-20 transition-colors">
       {/* Top Left: Date */}
       <div className="flex items-center gap-1.5">
         <span className="text-[11px] font-mono font-bold tracking-wider text-zinc-800 dark:text-zinc-100 uppercase">

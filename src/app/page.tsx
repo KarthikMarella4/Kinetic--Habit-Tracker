@@ -30,8 +30,8 @@ function AppShell() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ebebef] dark:bg-[#0b0c0e] text-zinc-900 dark:text-zinc-100 flex justify-center sm:items-center selection:bg-[#FF4F00] selection:text-white sm:py-6 kinetic-grid-bg transition-colors duration-200">
-      <div className="w-full max-w-[420px] bg-[#f8f8fa] dark:bg-[#121316] border border-zinc-300/80 dark:border-zinc-800/80 rounded-[42px] flex flex-col h-[100dvh] sm:h-[870px] shadow-[0_20px_60px_rgba(0,0,0,0.08)] dark:shadow-[0_25px_70px_rgba(0,0,0,0.85)] relative overflow-hidden transition-colors duration-200 kinetic-grid-bg">
+    <div className="min-h-[100dvh] w-full bg-[#f8f8fa] dark:bg-[#121316] sm:bg-[#ebebef] sm:dark:bg-[#0b0c0e] text-zinc-900 dark:text-zinc-100 flex justify-center sm:items-center selection:bg-[#FF4F00] selection:text-white sm:py-6 kinetic-grid-bg transition-colors duration-200">
+      <div className="w-full sm:max-w-[420px] bg-[#f8f8fa] dark:bg-[#121316] border-0 sm:border border-zinc-300/80 dark:border-zinc-800/80 rounded-none sm:rounded-[42px] flex flex-col h-[100dvh] sm:h-[880px] shadow-none sm:shadow-[0_20px_60px_rgba(0,0,0,0.08)] sm:dark:shadow-[0_25px_70px_rgba(0,0,0,0.85)] relative overflow-hidden transition-colors duration-200 kinetic-grid-bg">
         {/* Status Bar */}
         <StatusBar onOpenSettings={() => setIsSettingsOpen(true)} />
 

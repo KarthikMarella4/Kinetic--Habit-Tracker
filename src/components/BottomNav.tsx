@@ -10,7 +10,7 @@ export default function BottomNav({ onOpenModal }: BottomNavProps) {
   const { activeTab, setActiveTab } = useHabits();
 
   return (
-    <nav className="w-full bg-white dark:bg-[#18181b] border-t border-zinc-200 dark:border-zinc-800/80 rounded-b-[40px] sm:rounded-b-[44px] px-6 pt-2 pb-3.5 sm:pb-4 flex items-center justify-around select-none shadow-[0_-4px_20px_rgba(0,0,0,0.04)] dark:shadow-none transition-colors">
+    <nav className="w-full bg-white/95 dark:bg-[#18181b]/95 backdrop-blur-md border-t border-zinc-200/90 dark:border-zinc-800/80 rounded-none sm:rounded-b-[42px] px-3 sm:px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:pb-4 flex items-center justify-around select-none shadow-[0_-4px_20px_rgba(0,0,0,0.03)] dark:shadow-none transition-colors">
       {/* TODAY Tab */}
       <button
         onClick={() => setActiveTab("dashboard")}

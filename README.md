@@ -1,4 +1,4 @@
-# KINETIC – Precision-Engineered Habit Tracker ⚡
+# KINETIC – Habit Tracker ⚡
 
 <p align="center">
   <img src="./public/icon-512.jpg" alt="KINETIC Logo" width="120" style="border-radius: 24px;" />
@@ -97,47 +97,6 @@
 | **Typography** | Google Fonts | *Plus Jakarta Sans* (geometric sans) & *JetBrains Mono* (telemetry mono). |
 | **Deployment** | Netlify | Serverless deployment configured via `netlify.toml`. |
 
----
-
-## Getting Started Locally
-
-### Prerequisites
-- Node.js 18.18+ or later
-- npm or pnpm
-
-### Installation
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/KarthikMarella4/Kinetic--Habit-Tracker.git
-cd Kinetic--Habit-Tracker
-
-# 2. Install dependencies
-npm install
-
-# 3. Initialize Prisma and the local database
-npx prisma generate
-npx prisma db push
-
-# 4. Start the development server
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
-
-## Deployment on Netlify
-
-KINETIC is pre-configured for one-click deployment on **Netlify**:
-
-1. Log in to [Netlify](https://app.netlify.com).
-2. Click **"Add new site"** ➜ **"Import an existing project"**.
-3. Select your GitHub repository: **`Kinetic--Habit-Tracker`**.
-4. Netlify will automatically detect settings from [`netlify.toml`](./netlify.toml):
-   - **Build Command:** `npm run build` (`prisma generate && next build`)
-   - **Publish Directory:** `.next`
-5. Click **"Deploy site"** — your live PWA link will be ready in under 2 minutes!
 
 ---
 

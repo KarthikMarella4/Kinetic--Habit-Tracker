@@ -17,8 +17,8 @@ export default function DayStrip() {
   } = useHabits();
 
   return (
-    <section className="px-5 sm:px-6 py-2">
-      <div className="flex items-center justify-between mb-2.5 px-0.5">
+    <section className="px-3.5 sm:px-6 py-1.5 sm:py-2">
+      <div className="flex items-center justify-between mb-2 px-0.5">
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -51,7 +51,7 @@ export default function DayStrip() {
           {isCurrentWeek ? "TODAY" : "JUMP TO TODAY"}
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-1.5 select-none">
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5 select-none">
         {weekDays.map((day) => {
           const isSelected = day.iso === selectedDayIso;
           const pct = getDayCompletionPercent(day.iso);
@@ -66,21 +66,21 @@ export default function DayStrip() {
               key={day.iso}
               type="button"
               onClick={() => setSelectedDayIso(day.iso)}
-              className={`flex flex-col items-center justify-between py-2 px-1 rounded-2xl border transition-all ${
+              className={`flex flex-col items-center justify-between py-1.5 sm:py-2 px-0.5 sm:px-1 rounded-xl sm:rounded-2xl border transition-all ${
                 isSelected
                   ? "bg-zinc-900 text-white border-zinc-900 shadow-md dark:bg-white dark:text-zinc-950 dark:border-white dark:shadow-xl scale-[1.02]"
                   : "bg-white hover:bg-zinc-50 text-zinc-800 border-zinc-200/90 shadow-xs dark:bg-[#1c1d21]/80 dark:hover:bg-[#1c1d21] dark:text-zinc-300 dark:border-zinc-800/80"
               }`}
             >
               <span
-                className={`text-[9px] font-mono tracking-wider uppercase font-bold ${
+                className={`text-[8.5px] sm:text-[9px] font-mono tracking-wider uppercase font-bold ${
                   isSelected ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-500 dark:text-zinc-400"
                 }`}
               >
                 {day.shortDay}
               </span>
               <span
-                className={`text-sm font-black font-mono my-1 ${
+                className={`text-xs sm:text-sm font-black font-mono my-0.5 sm:my-1 ${
                   isSelected ? "text-white dark:text-zinc-950" : "text-zinc-900 dark:text-white"
                 }`}
               >

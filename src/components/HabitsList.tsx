@@ -21,7 +21,7 @@ export default function HabitsList({ onOpenModal }: HabitsListProps) {
       : habits.filter((h) => h.category.toUpperCase() === selectedCategory.toUpperCase());
 
   return (
-    <section className="px-5 sm:px-6">
+    <section className="px-3.5 sm:px-6">
       {/* Header: DAILY PROTOCOL & + NEW GOAL */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
