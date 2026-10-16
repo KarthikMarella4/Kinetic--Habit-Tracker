@@ -25,20 +25,20 @@ const months = [
   "DEC",
 ];
 
-export function getWeekDaysForDate(targetDate: Date, realToday: Date = new Date()): DayInfo[] {
+export function getWeekDaysForDate(targetDate: Date, realToday?: Date): DayInfo[] {
   const dayOfWeek = targetDate.getDay();
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const monday = new Date(targetDate);
   monday.setDate(targetDate.getDate() + diffToMonday);
 
   const days: DayInfo[] = [];
-  const todayStr = realToday.toDateString();
+  const todayStr = realToday ? realToday.toDateString() : "";
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     const iso = d.toISOString().split("T")[0];
-    const isToday = d.toDateString() === todayStr;
+    const isToday = todayStr ? d.toDateString() === todayStr : false;
     days.push({
       index: i,
       iso,
@@ -53,12 +53,14 @@ export function getWeekDaysForDate(targetDate: Date, realToday: Date = new Date(
 }
 
 export function getCurrentWeekDays(): DayInfo[] {
-  return getWeekDaysForDate(new Date());
+  const now = new Date();
+  return getWeekDaysForDate(now, now);
 }
 
 export function getFallbackWeekDays(): DayInfo[] {
   // Deterministic 2026-10-16 for static prerender
-  return getWeekDaysForDate(new Date("2026-10-16T12:00:00Z"));
+  const fallback = new Date("2026-10-16T12:00:00Z");
+  return getWeekDaysForDate(fallback, fallback);
 }
 
 export function getWeekIsoRange(weekDays: DayInfo[]): {
