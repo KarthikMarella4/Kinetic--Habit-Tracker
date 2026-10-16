@@ -1,52 +1,156 @@
-# KINETIC - Habit Tracker ⚡
+# KINETIC – Precision-Engineered Habit Tracker ⚡
 
-A high-performance, precision-engineered habit tracking Progressive Web App (PWA) built with **Next.js 16**, **Tailwind CSS**, and **Prisma SQLite**.
+<p align="center">
+  <img src="./public/icon-512.jpg" alt="KINETIC Logo" width="120" style="border-radius: 24px;" />
+</p>
 
-![KINETIC Banner](/public/icon-512.jpg)
+<p align="center">
+  <strong>High-performance habit tracking with engineering telemetry, weekly velocity analytics, and consistency matrices.</strong>
+</p>
 
-## Features
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js_16-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS_v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/Prisma_ORM-2D3748?style=for-the-badge&logo=prisma&logoColor=white" alt="Prisma" />
+  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white" alt="Netlify" />
+</p>
 
-- **Precision Dashboard:** Daily protocol tracking, streak calculation, and interactive completion rings.
-- **Weekly Timeline:** Seamless navigation between previous/next weeks with automatic date synchronization.
-- **Weekly Velocity Chart:** Real-time 7-day performance analytics and consistency scoring.
-- **Consistency Matrix:** Comprehensive Mon–Sun habit breakdown with quick cell toggling.
-- **Light & Dark Themes:** Dual aesthetic with precision blueprint grid pattern.
-- **Offline & Local Storage:** Embedded SQLite engine powered by Prisma with instant local persistence.
-- **PWA Ready:** Installable on iOS, Android, and Desktop with custom app icon.
-- **Customizable Preferences:** Editable user profile name, sample data restoration, and clean-slate resets.
+---
 
-## Tech Stack
+## Overview
 
-- **Framework:** [Next.js 16 (App Router + Turbopack)](https://nextjs.org/)
-- **Styling:** Vanilla CSS + Tailwind CSS v4
-- **Database & ORM:** SQLite + [Prisma ORM](https://www.prisma.io/)
-- **Icons:** [Lucide React](https://lucide.dev/)
-- **Fonts:** Plus Jakarta Sans & JetBrains Mono
+**KINETIC** is a precision-engineered habit tracking Progressive Web App (PWA) designed for high performers who want to turn daily routines into measurable momentum. Inspired by Swiss industrial design and telemetry dashboards, KINETIC elevates habit tracking from a mundane checklist into an actionable performance cockpit.
+
+- **Real-Time Daily Protocol:** Check off multi-step habits, track completion percentages, and build unbreakable streaks.
+- **Weekly Velocity Engine:** Gain immediate visibility into your 7-day performance with automated momentum trends.
+- **Consistency Matrix:** Review every habit across Mon–Sun with tap-to-toggle cell editing and category distributions.
+- **Dual Visual Architecture:** Switch seamlessly between high-contrast Light Mode and sleek Dark Mode with an authentic 12px precision blueprint grid canvas.
+
+---
+
+## Visual Showcase
+
+### 1. Main Protocol Dashboard (Today View)
+*Track daily routines, visualize dynamic completion rings, and monitor weekly velocity.*
+
+| Dark Mode | Light Mode |
+| :---: | :---: |
+| <img src="./public/screenshots/dashboard-dark.png" alt="Dashboard Dark Mode" width="100%" /> | <img src="./public/screenshots/dashboard-light.png" alt="Dashboard Light Mode" width="100%" /> |
+
+---
+
+### 2. Consistency Matrix & Streaks Analytics
+*Mon–Sun habit performance matrix, streak records, and category distribution metrics.*
+
+| Dark Mode Matrix | Light Mode Matrix |
+| :---: | :---: |
+| <img src="./public/screenshots/matrix-dark.png" alt="Consistency Matrix Dark Mode" width="100%" /> | <img src="./public/screenshots/matrix-light.png" alt="Consistency Matrix Light Mode" width="100%" /> |
+
+---
+
+## Key Features
+
+### ⚡ Daily Protocol & Streak Tracking
+- **Multi-Step Targets:** Configure habits with discrete targets (e.g., 2 blocks of Deep Work, 6 glasses of hydration, 20 pages of reading) with incremental `+1` / `-1` logging.
+- **Dynamic Completion Ring:** SVG radial gauge that animates your daily completion percentage in real time.
+- **Streak Protection:** Automated streak engine that tracks consecutive days completed and protects historical milestones.
+- **Category Segmentation:** Instant filtering across `DEEP WORK`, `FITNESS`, `LEARNING`, and `WELLNESS`.
+
+### 📊 Weekly Velocity Analytics
+- **7-Day Consistency Percentage:** Automatically calculates your aggregate weekly execution rate.
+- **Color-Coded Status Bars:**
+  - 🟢 **Emerald Green (`#00D68F`):** 100% Perfect execution days.
+  - 🟠 **Swiss Orange (`#FF4F00`):** In-progress or partial completion.
+- **Interactive Day Navigation:** Click any day bar to instantly jump your protocol view to that date.
+- **Momentum Comparison:** Real-time indicator displaying week-over-week performance changes.
+
+### 🗓️ Multi-Week & Month Time Travel
+- **Pagination Arrows (`‹` and `›`):** Step backward to inspect previous weeks and months or step forward to plan ahead.
+- **`JUMP TO TODAY` Button:** One-touch return that instantly snaps the view back to the current day.
+- **Date-Range Dynamic Queries:** Automatically queries historical logs from the local database for any chosen week.
+
+### 🔲 Consistency Matrix
+- **Heatmap Grid:** Full 7-day matrix tracking all habits side by side.
+- **Direct Cell Toggling:** Tap any matrix cell directly to toggle or log habit status without leaving the view.
+- **Category Distribution:** Visual progress bars displaying consistency percentages across routine categories.
+
+### ⚙️ Customizable Settings & Privacy
+- **Personalized Profile Name:** Edit and persist your display name (defaults to *Karthik Marella*).
+- **Clean Slate / Wipe All:** Reset all data with a safety confirmation (`"Tap to Confirm"`) to start streaks 100% fresh from Day 1.
+- **Restore Sample Habits:** Re-seed standard demo routines with one click.
+- **Local Engine Privacy:** All habits and logs are stored privately in your local database with zero external tracking.
+
+---
+
+## Tech Stack & Architecture
+
+| Layer | Technology | Details |
+| :--- | :--- | :--- |
+| **Framework** | Next.js 16 (App Router + Turbopack) | Fast Server Components, Route Handlers, and instant client hydration. |
+| **Language** | TypeScript 5 | Strict typing across all components, models, and date helpers. |
+| **Styling** | Tailwind CSS v4 + Vanilla CSS | Precision tokens, 12px blueprint grid pattern, custom animations. |
+| **Database** | SQLite 3 | Embedded zero-latency relational database. |
+| **ORM** | Prisma 6 | Type-safe schema models and relational log querying. |
+| **Icons** | Lucide React | Modern geometric iconography. |
+| **Typography** | Google Fonts | *Plus Jakarta Sans* (geometric sans) & *JetBrains Mono* (telemetry mono). |
+| **Deployment** | Netlify | Serverless deployment configured via `netlify.toml`. |
+
+---
 
 ## Getting Started Locally
 
+### Prerequisites
+- Node.js 18.18+ or later
+- npm or pnpm
+
+### Installation
+
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/KarthikMarella4/Kinetic--Habit-Tracker.git
 cd Kinetic--Habit-Tracker
 
-# Install dependencies
+# 2. Install dependencies
 npm install
 
-# Run database migrations
-npx prisma db push
+# 3. Initialize Prisma and the local database
 npx prisma generate
+npx prisma db push
 
-# Start the development server
+# 4. Start the development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+---
+
 ## Deployment on Netlify
 
-1. Link your GitHub repository in [Netlify](https://app.netlify.com).
-2. Netlify will automatically detect `netlify.toml` and Next.js settings:
-   - **Build Command:** `npm run build` (runs `prisma generate && next build`)
+KINETIC is pre-configured for one-click deployment on **Netlify**:
+
+1. Log in to [Netlify](https://app.netlify.com).
+2. Click **"Add new site"** ➜ **"Import an existing project"**.
+3. Select your GitHub repository: **`Kinetic--Habit-Tracker`**.
+4. Netlify will automatically detect settings from [`netlify.toml`](./netlify.toml):
+   - **Build Command:** `npm run build` (`prisma generate && next build`)
    - **Publish Directory:** `.next`
-3. Click **Deploy**.
+5. Click **"Deploy site"** — your live PWA link will be ready in under 2 minutes!
+
+---
+
+## Why KINETIC?
+
+Most habit trackers feel like passive checklists. **KINETIC** treats habit formation as an engineering feedback loop:
+- You see your **velocity** in real numbers, not vague emojis.
+- You can step through **previous weeks** to diagnose where habits slipped.
+- You have an authentic **Consistency Matrix** to inspect your rhythm across all categories.
+- Built as an installable **PWA** with native mobile touch interactions and a docked bottom stage.
+
+---
+
+<p align="center">
+  Built with precision by <strong>Karthik Marella</strong> ⚡
+</p>
