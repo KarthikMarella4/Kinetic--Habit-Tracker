@@ -13,13 +13,15 @@ interface HabitsContextType {
   setSelectedDayIso: (iso: string) => void;
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
-  activeTab: "dashboard" | "analytics";
-  setActiveTab: (tab: "dashboard" | "analytics") => void;
+  activeTab: "dashboard" | "analytics" | "manage";
+  setActiveTab: (tab: "dashboard" | "analytics" | "manage") => void;
   loading: boolean;
   fetchHabits: () => Promise<void>;
   createHabit: (data: { name: string; category: string; color: string; target: number; unit: string }) => Promise<void>;
   updateHabit: (id: string, data: { name: string; category: string; color: string; target: number; unit: string }) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
+  moveHabitUp: (habitId: string) => void;
+  moveHabitDown: (habitId: string) => void;
   incrementHabit: (habitId: string) => Promise<void>;
   decrementHabit: (habitId: string) => Promise<void>;
   toggleMatrixCell: (habitId: string, isoDate: string) => Promise<void>;
@@ -62,7 +64,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const todayObj = weekDays.find((d) => d.isToday) || weekDays[4];
   const [selectedDayIso, setSelectedDayIso] = useState(todayObj.iso);
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "manage">("dashboard");
   const [weekOffset, setWeekOffset] = useState(0);
 
   // Safe local storage helper
@@ -360,6 +362,40 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     [saveLocalHabits, showToast]
   );
 
+  const moveHabitUp = useCallback(
+    (habitId: string) => {
+      setHabits((prev) => {
+        const index = prev.findIndex((h) => h.id === habitId);
+        if (index <= 0) return prev;
+        const next = [...prev];
+        const temp = next[index - 1];
+        next[index - 1] = next[index];
+        next[index] = temp;
+        saveLocalHabits(next);
+        return next;
+      });
+      showToast("Priority Moved Up");
+    },
+    [saveLocalHabits, showToast]
+  );
+
+  const moveHabitDown = useCallback(
+    (habitId: string) => {
+      setHabits((prev) => {
+        const index = prev.findIndex((h) => h.id === habitId);
+        if (index === -1 || index >= prev.length - 1) return prev;
+        const next = [...prev];
+        const temp = next[index + 1];
+        next[index + 1] = next[index];
+        next[index] = temp;
+        saveLocalHabits(next);
+        return next;
+      });
+      showToast("Priority Moved Down");
+    },
+    [saveLocalHabits, showToast]
+  );
+
   const fetchHabits = useCallback(async () => {
     try {
       const res = await fetch(`/api/habits?start=${weekDays[0].iso}&end=${weekDays[6].iso}`);
@@ -454,6 +490,8 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         createHabit,
         updateHabit,
         deleteHabit,
+        moveHabitUp,
+        moveHabitDown,
         incrementHabit,
         decrementHabit,
         toggleMatrixCell,

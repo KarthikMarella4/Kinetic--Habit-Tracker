@@ -65,8 +65,12 @@ export default function BottomNav({ onOpenModal }: BottomNavProps) {
 
       {/* MANAGE Tab */}
       <button
-        onClick={onOpenModal}
-        className="flex flex-col items-center gap-1 py-0.5 px-4 text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-200 transition-all duration-150 active:scale-95"
+        onClick={() => setActiveTab("manage")}
+        className={`flex flex-col items-center gap-1 py-0.5 px-4 transition-all duration-150 active:scale-95 ${
+          activeTab === "manage"
+            ? "text-[#FF4F00]"
+            : "text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-200"
+        }`}
       >
         <svg
           className="w-5 h-5"

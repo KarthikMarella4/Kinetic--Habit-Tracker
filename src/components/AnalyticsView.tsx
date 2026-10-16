@@ -25,7 +25,8 @@ export default function AnalyticsView() {
   const maxStreak = habits.reduce((max, h) => Math.max(max, calculateHabitStreak(h)), 0);
 
   // Category breakdown
-  const categories = ["Deep Work", "Fitness", "Learning", "Wellness"];
+  const defaultCats = ["Deep Work", "Fitness", "Learning", "Wellness"];
+  const categories = Array.from(new Set([...defaultCats, ...habits.map((h) => h.category)]));
 
   return (
     <div className="space-y-5 pt-3 px-4 sm:px-6">

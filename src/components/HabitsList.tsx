@@ -14,7 +14,12 @@ export default function HabitsList({ onOpenModal }: HabitsListProps) {
 
   const activeDay = weekDays.find((d) => d.iso === selectedDayIso) || todayObj;
 
-  const categories = ["ALL", "DEEP WORK", "FITNESS", "LEARNING", "WELLNESS"];
+  const defaultCategories = ["ALL", "DEEP WORK", "FITNESS", "LEARNING", "WELLNESS"];
+  const customCategories = habits
+    .map((h) => h.category.toUpperCase())
+    .filter((cat) => !defaultCategories.includes(cat));
+  const categories = [...defaultCategories, ...Array.from(new Set(customCategories))];
+
   const filtered =
     selectedCategory === "ALL" || selectedCategory === "All"
       ? habits

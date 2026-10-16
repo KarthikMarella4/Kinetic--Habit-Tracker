@@ -15,9 +15,22 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Deep Work");
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategory, setCustomCategory] = useState("");
   const [color, setColor] = useState("#FF4F00");
   const [target, setTarget] = useState(1);
-  const [unit, setUnit] = useState("session");
+  const [unit, setUnit] = useState("");
+
+  // Aggregate prebuilt + existing custom categories
+  const existingCategories = Array.from(
+    new Set([
+      "Deep Work",
+      "Fitness",
+      "Learning",
+      "Wellness",
+      ...habits.map((h) => h.category),
+    ])
+  );
 
   useEffect(() => {
     if (editHabitId) {
@@ -25,6 +38,8 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
       if (h) {
         setName(h.name);
         setCategory(h.category);
+        setIsCustomCategory(false);
+        setCustomCategory("");
         setColor(h.color);
         setTarget(h.target);
         setUnit(h.unit);
@@ -32,9 +47,11 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
     } else {
       setName("");
       setCategory("Deep Work");
+      setIsCustomCategory(false);
+      setCustomCategory("");
       setColor("#FF4F00");
       setTarget(1);
-      setUnit("session");
+      setUnit("");
     }
   }, [editHabitId, habits, isOpen]);
 
@@ -44,7 +61,17 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
     e.preventDefault();
     if (!name.trim()) return;
 
-    const data = { name: name.trim(), category, color, target: Math.max(1, target), unit: unit || "unit" };
+    const finalCategory = isCustomCategory
+      ? (customCategory.trim() || "General")
+      : category;
+
+    const data = {
+      name: name.trim(),
+      category: finalCategory,
+      color,
+      target: Math.max(1, target),
+      unit: unit.trim() || "unit",
+    };
 
     if (editHabitId) {
       await updateHabit(editHabitId, data);
@@ -68,10 +95,10 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
         <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
           <div>
             <span className="text-[10px] font-mono uppercase tracking-widest text-[#FF4F00] font-bold">
-              PROTOCOL CONFIG
+              GOAL CONFIG
             </span>
             <h3 className="text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">
-              {editHabitId ? "Edit Habit Protocol" : "Create Daily Habit"}
+              {editHabitId ? "Edit Goal" : "Create Goal"}
             </h3>
           </div>
           <button
@@ -104,16 +131,40 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
                 Category
               </label>
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                value={isCustomCategory ? "__CUSTOM__" : category}
+                onChange={(e) => {
+                  if (e.target.value === "__CUSTOM__") {
+                    setIsCustomCategory(true);
+                  } else {
+                    setIsCustomCategory(false);
+                    setCategory(e.target.value);
+                  }
+                }}
                 className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
               >
-                <option value="Deep Work">Deep Work</option>
-                <option value="Fitness">Fitness</option>
-                <option value="Learning">Learning</option>
-                <option value="Wellness">Wellness</option>
+                {existingCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+                <option value="__CUSTOM__">Custom</option>
               </select>
+
+              {/* Inline Custom Category Input */}
+              {isCustomCategory && (
+                <div className="mt-2 animate-pop">
+                  <input
+                    type="text"
+                    required
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    placeholder="Type category name"
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-950 border border-[#FF4F00]/50 dark:border-[#FF4F00]/60 text-base sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
+                  />
+                </div>
+              )}
             </div>
+
             <div>
               <label className="block text-[11px] font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1 font-semibold">
                 Accent Color
@@ -134,21 +185,44 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
           </div>
 
           <div className="grid grid-cols-2 gap-3">
+            {/* Daily Target Steps with - and + */}
             <div>
-              <label className="block text-[11px] font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1 font-semibold">
-                Daily Target Steps
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={target}
-                onChange={(e) => setTarget(parseInt(e.target.value) || 1)}
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-mono font-bold focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
-              />
-              <span className="text-[10px] text-zinc-400 font-mono">1 = Simple check-off</span>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-mono uppercase text-zinc-500 dark:text-zinc-400 font-semibold">
+                  Daily Target Steps
+                </label>
+                <span className="text-[10px] font-mono text-zinc-400">
+                  {target === 1 ? "1 check" : `${target} steps`}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setTarget((t) => Math.max(1, t - 1))}
+                  className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-mono text-lg font-bold flex items-center justify-center transition-colors shrink-0"
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={target}
+                  onChange={(e) => setTarget(Math.max(1, parseInt(e.target.value) || 1))}
+                  required
+                  className="w-full h-10 py-2 text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-mono font-bold focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setTarget((t) => Math.min(50, t + 1))}
+                  className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-mono text-lg font-bold flex items-center justify-center transition-colors shrink-0"
+                >
+                  +
+                </button>
+              </div>
             </div>
+
+            {/* Unit Label Input */}
             <div>
               <label className="block text-[11px] font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1 font-semibold">
                 Unit Label
@@ -157,9 +231,25 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
                 type="text"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
-                placeholder="e.g., glasses, pages"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
+                placeholder="e.g., pages, sets, ml, workout, night"
+                className="w-full h-10 px-3.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-base sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
               />
+              <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                {["pages", "sets", "ml", "workout", "night"].map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setUnit(u)}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-mono transition-colors ${
+                      unit.toLowerCase() === u
+                        ? "bg-[#FF4F00] text-white"
+                        : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400"
+                    }`}
+                  >
+                    {u}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -177,7 +267,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
               type="submit"
               className="flex-1 py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-mono text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
             >
-              Save Habit Protocol
+              Save Goal
             </button>
           </div>
         </form>

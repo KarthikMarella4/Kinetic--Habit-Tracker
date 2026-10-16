@@ -8,6 +8,7 @@ import DayStrip from "@/components/DayStrip";
 import WeeklyChart from "@/components/WeeklyChart";
 import HabitsList from "@/components/HabitsList";
 import AnalyticsView from "@/components/AnalyticsView";
+import ManageView from "@/components/ManageView";
 import BottomNav from "@/components/BottomNav";
 import HabitModal from "@/components/HabitModal";
 import SettingsModal from "@/components/SettingsModal";
@@ -56,9 +57,13 @@ function AppShell() {
               <WeeklyChart />
               <HabitsList onOpenModal={handleOpenModal} />
             </div>
-          ) : (
+          ) : activeTab === "analytics" ? (
             <div className="pt-3 pb-4">
               <AnalyticsView />
+            </div>
+          ) : (
+            <div className="pt-2 pb-4">
+              <ManageView onOpenModal={handleOpenModal} />
             </div>
           )}
         </main>
