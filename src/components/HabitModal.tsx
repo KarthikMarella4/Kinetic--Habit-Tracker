@@ -240,11 +240,10 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
                     key={u}
                     type="button"
                     onClick={() => setUnit(u)}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-mono transition-colors ${
-                      unit.toLowerCase() === u
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-mono transition-colors ${unit.toLowerCase() === u
                         ? "bg-[#FF4F00] text-white"
                         : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400"
-                    }`}
+                      }`}
                   >
                     {u}
                   </button>

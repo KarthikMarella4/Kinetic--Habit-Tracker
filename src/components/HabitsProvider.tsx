@@ -125,15 +125,17 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
 
-    // Best-effort background sync with local SQLite API if available
+    // Optional background sync with SQLite API only if local storage was empty
     (async () => {
       try {
-        const res = await fetch(`/api/habits?start=${actualDays[0].iso}&end=${actualDays[6].iso}`);
-        if (res.ok) {
-          const apiData = await res.json();
-          if (Array.isArray(apiData) && apiData.length > 0) {
-            setHabits(apiData);
-            saveLocalHabits(apiData);
+        if (loadedHabits === null && !isFreshStarted) {
+          const res = await fetch(`/api/habits?start=${actualDays[0].iso}&end=${actualDays[6].iso}`);
+          if (res.ok) {
+            const apiData = await res.json();
+            if (Array.isArray(apiData) && apiData.length > 0) {
+              setHabits(apiData);
+              saveLocalHabits(apiData);
+            }
           }
         }
       } catch (_) {

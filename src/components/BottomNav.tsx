@@ -3,7 +3,7 @@
 import { useHabits } from "./HabitsProvider";
 
 interface BottomNavProps {
-  onOpenModal: () => void;
+  onOpenModal?: () => void;
 }
 
 export default function BottomNav({ onOpenModal }: BottomNavProps) {
