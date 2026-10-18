@@ -12,6 +12,7 @@ export default function Header() {
     getDayCompletedCount,
     calculateHabitStreak,
     userName,
+    isFreezeActive,
   } = useHabits();
 
   const activeDay = weekDays.find((d) => d.iso === selectedDayIso) || todayObj;
@@ -28,12 +29,19 @@ export default function Header() {
     <header className="px-4 sm:px-6 pt-4 sm:pt-5 pb-2.5 sm:pb-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          {/* Top Badge: 🔥 26D STREAK */}
-          <div className="flex items-center gap-2">
+          {/* Top Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-[#FF4F00]/10 dark:bg-[#FF4F00]/15 text-[#FF4F00] border border-[#FF4F00]/25 dark:border-[#FF4F00]/30 rounded-md flex items-center gap-1.5 font-bold">
               <span className="text-xs leading-none">🔥</span>
               <span>{bestStreak}D STREAK</span>
             </span>
+
+            {isFreezeActive && (
+              <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 border border-cyan-500/30 rounded-md flex items-center gap-1">
+                <span>❄️</span>
+                <span>FROZEN</span>
+              </span>
+            )}
           </div>
 
           {/* User Name */}

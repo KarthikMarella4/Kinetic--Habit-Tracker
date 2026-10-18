@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Habit, DayInfo, HabitFormData, GoalScheduleType } from "@/lib/types";
-import { getCurrentWeekDays, getFallbackWeekDays, getWeekDaysForDate, getTodayIso, getTomorrowIso, getTomorrowIsoFrom } from "@/lib/dates";
+import { getCurrentWeekDays, getFallbackWeekDays, getWeekDaysForDate, getTodayIso, getTomorrowIso, getTomorrowIsoFrom, formatLocalIso, WeekStartDay } from "@/lib/dates";
 import { createDefaultDemoHabits } from "@/lib/demoData";
+import { playCompletionChime } from "@/lib/sound";
 
 export function isHabitActiveOnDate(
   habit: Habit,
@@ -69,6 +70,17 @@ interface HabitsContextType {
   tomorrowIso: string;
   toast: string | null;
   showToast: (msg: string) => void;
+  weekStartDay: WeekStartDay;
+  setWeekStartDay: (start: WeekStartDay) => void;
+  freezeUntil: string | null;
+  setStreakFreeze: (days: number) => void;
+  isFreezeActive: boolean;
+  reminderEnabled: boolean;
+  reminderTime: string;
+  setReminderSettings: (enabled: boolean, time: string) => Promise<boolean>;
+  sendTestNotification: () => void;
+  exportBackupData: () => any;
+  importBackup: (data: any) => Promise<void>;
 }
 
 const HabitsContext = createContext<HabitsContextType | null>(null);
@@ -76,6 +88,10 @@ const HabitsContext = createContext<HabitsContextType | null>(null);
 const STORAGE_KEY = "kinetic_habits_v3";
 const FRESH_START_KEY = "kinetic_fresh_started";
 const USER_NAME_KEY = "kinetic_user_name";
+const WEEK_START_KEY = "kinetic_week_start_day";
+const FREEZE_UNTIL_KEY = "kinetic_freeze_until";
+const REMINDER_ENABLED_KEY = "kinetic_reminder_enabled";
+const REMINDER_TIME_KEY = "kinetic_reminder_time";
 
 export function useHabits() {
   const ctx = useContext(HabitsContext);
@@ -88,6 +104,10 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [userName, setUserNameState] = useState("Karthik Marella");
+  const [weekStartDay, setWeekStartDayState] = useState<WeekStartDay>("monday");
+  const [freezeUntil, setFreezeUntilState] = useState<string | null>(null);
+  const [reminderEnabled, setReminderEnabledState] = useState(false);
+  const [reminderTime, setReminderTimeState] = useState("20:00");
 
   const [weekDays, setWeekDays] = useState<DayInfo[]>(() => getFallbackWeekDays());
   const todayObj = weekDays.find((d) => d.isToday) || weekDays[4];
@@ -112,12 +132,28 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
 
   // Initialize habits on client mount
   useEffect(() => {
+    let initialWeekStart: WeekStartDay = "monday";
     try {
       const savedName = localStorage.getItem(USER_NAME_KEY);
       if (savedName) setUserNameState(savedName);
+
+      const savedStart = localStorage.getItem(WEEK_START_KEY) as WeekStartDay;
+      if (savedStart === "sunday" || savedStart === "monday") {
+        initialWeekStart = savedStart;
+        setWeekStartDayState(savedStart);
+      }
+
+      const savedFreeze = localStorage.getItem(FREEZE_UNTIL_KEY);
+      if (savedFreeze) setFreezeUntilState(savedFreeze);
+
+      const savedRemEnabled = localStorage.getItem(REMINDER_ENABLED_KEY);
+      if (savedRemEnabled === "true") setReminderEnabledState(true);
+
+      const savedRemTime = localStorage.getItem(REMINDER_TIME_KEY);
+      if (savedRemTime) setReminderTimeState(savedRemTime);
     } catch (_) {}
 
-    const actualDays = getCurrentWeekDays();
+    const actualDays = getCurrentWeekDays(initialWeekStart);
     setWeekDays(actualDays);
     const today = actualDays.find((d) => d.isToday) || actualDays[4];
     setSelectedDayIso(today.iso);
@@ -222,18 +258,22 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     [habits, checkIsHabitActive, getLogValue]
   );
 
+  const isFreezeActive = Boolean(freezeUntil && todayIso <= freezeUntil);
+
   const calculateHabitStreak = useCallback(
     (habit: Habit): number => {
       let currentWeekComplete = 0;
       weekDays.forEach((d) => {
         // Only count days where the habit was active
         if (checkIsHabitActive(habit, d.iso)) {
-          if (getLogValue(habit, d.iso) >= habit.target) currentWeekComplete++;
+          const val = getLogValue(habit, d.iso);
+          const isDayFrozen = freezeUntil ? d.iso <= freezeUntil && d.iso >= todayIso : false;
+          if (val >= habit.target || isDayFrozen) currentWeekComplete++;
         }
       });
       return (habit.streak || 0) + currentWeekComplete;
     },
-    [weekDays, checkIsHabitActive, getLogValue]
+    [weekDays, checkIsHabitActive, getLogValue, freezeUntil, todayIso]
   );
 
   const upsertLog = useCallback(
@@ -260,7 +300,10 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         showToast(`Reset ${habit.name}`);
       } else {
         newVal = current + 1;
-        if (newVal === habit.target) showToast("Completed! +1 Streak 🔥");
+        if (newVal === habit.target) {
+          playCompletionChime();
+          showToast("Completed! +1 Streak 🔥");
+        }
       }
 
       setHabits((prev) => {
@@ -485,13 +528,173 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       setWeekOffset(offset);
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + offset * 7);
-      const days = getWeekDaysForDate(targetDate, new Date());
+      const days = getWeekDaysForDate(targetDate, new Date(), weekStartDay);
       setWeekDays(days);
       const todayInWeek = days.find((d) => d.isToday);
       setSelectedDayIso(todayInWeek ? todayInWeek.iso : days[0].iso);
     },
-    []
+    [weekStartDay]
   );
+
+  const setWeekStartDay = useCallback((start: WeekStartDay) => {
+    setWeekStartDayState(start);
+    try {
+      localStorage.setItem(WEEK_START_KEY, start);
+    } catch (_) {}
+    const now = new Date();
+    const targetDate = new Date();
+    targetDate.setDate(now.getDate() + weekOffset * 7);
+    const days = getWeekDaysForDate(targetDate, now, start);
+    setWeekDays(days);
+  }, [weekOffset]);
+
+  const setStreakFreeze = useCallback((days: number) => {
+    if (days <= 0) {
+      setFreezeUntilState(null);
+      try {
+        localStorage.removeItem(FREEZE_UNTIL_KEY);
+      } catch (_) {}
+      showToast("Streak Freeze Deactivated");
+      return;
+    }
+    const d = new Date();
+    d.setDate(d.getDate() + (days - 1));
+    const untilIso = formatLocalIso(d);
+    setFreezeUntilState(untilIso);
+    try {
+      localStorage.setItem(FREEZE_UNTIL_KEY, untilIso);
+    } catch (_) {}
+    showToast(`Streak Frozen for ${days} Day${days > 1 ? "s" : ""} ❄️`);
+  }, [showToast]);
+
+  const setReminderSettings = useCallback(async (enabled: boolean, time: string) => {
+    if (enabled && typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission !== "granted") {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          showToast("Notification permission denied in browser");
+          setReminderEnabledState(false);
+          try {
+            localStorage.setItem(REMINDER_ENABLED_KEY, "false");
+          } catch (_) {}
+          return false;
+        }
+      }
+    }
+
+    setReminderEnabledState(enabled);
+    setReminderTimeState(time);
+    try {
+      localStorage.setItem(REMINDER_ENABLED_KEY, enabled ? "true" : "false");
+      localStorage.setItem(REMINDER_TIME_KEY, time);
+    } catch (_) {}
+    const [hStr, mStr] = (time || "20:00").split(":");
+    let h = parseInt(hStr || "20", 10);
+    if (isNaN(h)) h = 20;
+    const m = mStr && mStr.length === 2 ? mStr : "00";
+    const period = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    const formatted12 = `${String(h12).padStart(2, "0")}:${m} ${period}`;
+
+    showToast(enabled ? `Reminder set for ${formatted12}` : "Reminder Disabled");
+    return true;
+  }, [showToast]);
+
+  const sendTestNotification = useCallback(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      showToast("Notifications not supported in this browser");
+      return;
+    }
+    const activeToday = habits.filter((h) => checkIsHabitActive(h, todayIso));
+    const uncompleted = activeToday.filter((h) => getLogValue(h, todayIso) < h.target).length;
+    const bestStreak = habits.length > 0 ? habits.reduce((acc, h) => Math.max(acc, calculateHabitStreak(h)), 0) : 0;
+    const remainingCount = uncompleted > 0 ? uncompleted : 2;
+    const streakDisplay = bestStreak > 0 ? bestStreak : 26;
+    const notifBody = `${userName}, you have ${remainingCount} protocol${remainingCount > 1 ? "s" : ""} remaining to protect your ${streakDisplay}-day streak! 🔥`;
+
+    const triggerNotification = () => {
+      new Notification("Kinetic Focus Reminder", {
+        body: notifBody,
+      });
+      showToast("Test notification sent!");
+    };
+
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission().then((perm) => {
+        if (perm === "granted") {
+          triggerNotification();
+        } else {
+          showToast("Permission denied in browser");
+        }
+      });
+    } else {
+      triggerNotification();
+    }
+  }, [habits, checkIsHabitActive, todayIso, getLogValue, calculateHabitStreak, userName, showToast]);
+
+  // Periodic reminder checker
+  useEffect(() => {
+    if (!reminderEnabled || typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      if (currentHHMM === reminderTime) {
+        const lastSentKey = "kinetic_last_reminder_sent";
+        const lastSent = localStorage.getItem(lastSentKey);
+        if (lastSent !== todayIso) {
+          const activeToday = habits.filter((h) => checkIsHabitActive(h, todayIso));
+          const uncompleted = activeToday.filter((h) => getLogValue(h, todayIso) < h.target).length;
+          const bestStreak = habits.length > 0 ? habits.reduce((acc, h) => Math.max(acc, calculateHabitStreak(h)), 0) : 0;
+          if (uncompleted > 0) {
+            new Notification("Kinetic Focus Reminder", {
+              body: `${userName}, you have ${uncompleted} protocol${uncompleted > 1 ? "s" : ""} remaining to protect your ${bestStreak}-day streak! 🔥`,
+            });
+            localStorage.setItem(lastSentKey, todayIso);
+          }
+        }
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [reminderEnabled, reminderTime, todayIso, habits, checkIsHabitActive, getLogValue, calculateHabitStreak, userName]);
+
+  const exportBackupData = useCallback(() => {
+    return {
+      app: "Kinetic Habit Tracker",
+      version: "1.2",
+      exportedAt: new Date().toISOString(),
+      userName,
+      weekStartDay,
+      freezeUntil,
+      habits,
+    };
+  }, [userName, weekStartDay, freezeUntil, habits]);
+
+  const importBackup = useCallback(async (data: any) => {
+    if (!data || !Array.isArray(data.habits)) {
+      throw new Error("Invalid backup format");
+    }
+    setHabits(data.habits);
+    saveLocalHabits(data.habits);
+    if (data.userName) {
+      setUserNameState(data.userName);
+      try {
+        localStorage.setItem(USER_NAME_KEY, data.userName);
+      } catch (_) {}
+    }
+    if (data.weekStartDay && (data.weekStartDay === "monday" || data.weekStartDay === "sunday")) {
+      setWeekStartDay(data.weekStartDay);
+    }
+    if (data.freezeUntil) {
+      setFreezeUntilState(data.freezeUntil);
+      try {
+        localStorage.setItem(FREEZE_UNTIL_KEY, data.freezeUntil);
+      } catch (_) {}
+    }
+    showToast("Backup Data Restored Successfully!");
+  }, [saveLocalHabits, setWeekStartDay, showToast]);
 
   const goToPreviousWeek = useCallback(() => {
     changeWeek(weekOffset - 1);
@@ -584,6 +787,17 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         isHabitActiveOnDate: checkIsHabitActive,
         toast,
         showToast,
+        weekStartDay,
+        setWeekStartDay,
+        freezeUntil,
+        setStreakFreeze,
+        isFreezeActive,
+        reminderEnabled,
+        reminderTime,
+        setReminderSettings,
+        sendTestNotification,
+        exportBackupData,
+        importBackup,
       }}
     >
       {children}

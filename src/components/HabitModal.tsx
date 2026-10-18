@@ -112,9 +112,15 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
     }
   };
 
+  const isDuplicateName = habits.some(
+    (h) =>
+      h.id !== editHabitId &&
+      h.name.trim().toLowerCase() === name.trim().toLowerCase()
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || isDuplicateName) return;
 
     const finalCategory = isCustomCategory
       ? (customCategory.trim() || "General")
@@ -190,17 +196,33 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
         <form onSubmit={handleSubmit} className="space-y-3 mt-3">
           {/* Row 1: Goal Title */}
           <div>
-            <label className="block text-[10px] font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1 font-bold">
-              Goal Title *
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[10px] font-mono uppercase text-zinc-500 dark:text-zinc-400 font-bold">
+                Goal Title *
+              </label>
+              {isDuplicateName && (
+                <span className="text-[10px] font-mono font-bold text-rose-500 flex items-center gap-1 animate-pulse">
+                  Already Exists
+                </span>
+              )}
+            </div>
             <input
               type="text"
               required
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="e.g., Core Architecture"
-              className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-[15px] sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
+              className={`w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border text-[15px] sm:text-sm font-medium focus:outline-none text-zinc-900 dark:text-white transition-colors ${
+                isDuplicateName
+                  ? "border-rose-500 focus:border-rose-500 ring-1 ring-rose-500/20"
+                  : "border-zinc-200 dark:border-zinc-800 focus:border-[#FF4F00]"
+              }`}
             />
+            {isDuplicateName && (
+              <p className="text-[10.5px] font-mono text-rose-500 mt-1 leading-tight animate-pop">
+                A goal with this name already exists. Please choose a different title.
+              </p>
+            )}
           </div>
 
           {/* Row 2: Category & Accent Color */}
@@ -484,9 +506,14 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
             )}
             <button
               type="submit"
-              className="flex-1 py-3 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-mono text-xs font-bold uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all shadow-md"
+              disabled={Boolean(isDuplicateName) || !name.trim()}
+              className={`flex-1 py-3 rounded-2xl font-mono text-xs font-bold uppercase tracking-widest transition-all shadow-md ${
+                isDuplicateName || !name.trim()
+                  ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed"
+                  : "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:opacity-90 active:scale-[0.98]"
+              }`}
             >
-              Save Goal
+              {isDuplicateName ? "Goal Already Exists" : "Save Goal"}
             </button>
           </div>
         </form>

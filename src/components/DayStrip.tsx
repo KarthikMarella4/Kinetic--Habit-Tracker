@@ -2,6 +2,7 @@
 
 import { useHabits } from "./HabitsProvider";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useRef, useState } from "react";
 
 export default function DayStrip() {
   const {
@@ -16,28 +17,129 @@ export default function DayStrip() {
     isCurrentWeek,
   } = useHabits();
 
+  const [slideDirection, setSlideDirection] = useState<"left" | "right" | null>(null);
+
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef<number | null>(null);
+  const wheelCooldownRef = useRef(false);
+
+  const triggerPrevious = () => {
+    setSlideDirection("right");
+    goToPreviousWeek();
+    setTimeout(() => setSlideDirection(null), 250);
+  };
+
+  const triggerNext = () => {
+    setSlideDirection("left");
+    goToNextWeek();
+    setTimeout(() => setSlideDirection(null), 250);
+  };
+
+  // Touch Swipe Handlers (Mobile)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
+
+    // Trigger only if horizontal swipe dominates vertical movement
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 35) {
+      if (deltaX > 0) {
+        triggerPrevious();
+      } else {
+        triggerNext();
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+  };
+
+  // Wheel / Trackpad Scroll Handlers
+  const handleWheel = (e: React.WheelEvent) => {
+    if (wheelCooldownRef.current) return;
+    const delta = Math.abs(e.deltaX) > 15 ? e.deltaX : e.shiftKey ? e.deltaY : 0;
+    if (Math.abs(delta) > 20) {
+      wheelCooldownRef.current = true;
+      if (delta > 0) {
+        triggerNext();
+      } else {
+        triggerPrevious();
+      }
+      setTimeout(() => {
+        wheelCooldownRef.current = false;
+      }, 350);
+    }
+  };
+
+  // Mouse Drag Handlers (Desktop click & drag)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    isDraggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!isDraggingRef.current || dragStartXRef.current === null) return;
+    const deltaX = e.clientX - dragStartXRef.current;
+    if (Math.abs(deltaX) > 40) {
+      if (deltaX > 0) {
+        triggerPrevious();
+      } else {
+        triggerNext();
+      }
+    }
+    isDraggingRef.current = false;
+    dragStartXRef.current = null;
+  };
+
+  const handleMouseLeave = () => {
+    isDraggingRef.current = false;
+    dragStartXRef.current = null;
+  };
+
   return (
-    <section className="px-3.5 sm:px-6 py-1.5 sm:py-2">
-      <div className="flex items-center justify-between mb-2 px-0.5">
+    <section
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onWheel={handleWheel}
+      className="px-3.5 sm:px-6 py-1.5 sm:py-2 touch-pan-y"
+    >
+      <div className="flex items-center justify-between mb-2 px-0.5 select-none">
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={goToPreviousWeek}
+            onClick={triggerPrevious}
             title="Previous Week"
             aria-label="Previous Week"
-            className="p-1 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors"
+            className="p-1 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-zinc-800 active:scale-95 transition-all"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-bold">
-            {weekDays[0].month} {weekDays[0].dateNum} — {weekDays[6].month} {weekDays[6].dateNum}
-          </span>
+
+          <div
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            title="Swipe or scroll left/right to move week"
+            className="flex items-center gap-1 cursor-grab active:cursor-grabbing select-none px-1.5 py-0.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors"
+          >
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600 dark:text-zinc-400 font-bold">
+              {weekDays[0].month} {weekDays[0].dateNum} — {weekDays[6].month} {weekDays[6].dateNum}
+            </span>
+          </div>
+
           <button
             type="button"
-            onClick={goToNextWeek}
+            onClick={triggerNext}
             title="Next Week"
             aria-label="Next Week"
-            className="p-1 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors"
+            className="p-1 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/70 dark:hover:bg-zinc-800 active:scale-95 transition-all"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
@@ -51,7 +153,16 @@ export default function DayStrip() {
           {isCurrentWeek ? "TODAY" : "JUMP TO TODAY"}
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-1 sm:gap-1.5 select-none">
+
+      <div
+        className={`grid grid-cols-7 gap-1 sm:gap-1.5 select-none transition-transform duration-200 ${
+          slideDirection === "left"
+            ? "-translate-x-1"
+            : slideDirection === "right"
+            ? "translate-x-1"
+            : "translate-x-0"
+        }`}
+      >
         {weekDays.map((day) => {
           const isSelected = day.iso === selectedDayIso;
           const pct = getDayCompletionPercent(day.iso);

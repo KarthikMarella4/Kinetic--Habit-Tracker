@@ -37,26 +37,63 @@ export function parseLocalIso(iso: string): Date {
   return new Date(year, month - 1, day, 12, 0, 0);
 }
 
-export function getWeekDaysForDate(targetDate: Date, realToday?: Date): DayInfo[] {
+export type WeekStartDay = "monday" | "sunday";
+
+const shortNamesMon = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+const fullNamesMon = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+const shortNamesSun = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+const fullNamesSun = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+export function getWeekDaysForDate(
+  targetDate: Date,
+  realToday?: Date,
+  weekStart: WeekStartDay = "monday"
+): DayInfo[] {
   const dayOfWeek = targetDate.getDay();
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(
+  let diffToStart = 0;
+  if (weekStart === "sunday") {
+    diffToStart = -dayOfWeek;
+  } else {
+    diffToStart = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  }
+
+  const startDay = new Date(
     targetDate.getFullYear(),
     targetDate.getMonth(),
-    targetDate.getDate() + diffToMonday,
+    targetDate.getDate() + diffToStart,
     12,
     0,
     0
   );
+
+  const shortNames = weekStart === "sunday" ? shortNamesSun : shortNamesMon;
+  const fullNames = weekStart === "sunday" ? fullNamesSun : fullNamesMon;
 
   const days: DayInfo[] = [];
   const todayIso = realToday ? formatLocalIso(realToday) : getTodayIso();
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(
-      monday.getFullYear(),
-      monday.getMonth(),
-      monday.getDate() + i,
+      startDay.getFullYear(),
+      startDay.getMonth(),
+      startDay.getDate() + i,
       12,
       0,
       0
@@ -76,15 +113,15 @@ export function getWeekDaysForDate(targetDate: Date, realToday?: Date): DayInfo[
   return days;
 }
 
-export function getCurrentWeekDays(): DayInfo[] {
+export function getCurrentWeekDays(weekStart: WeekStartDay = "monday"): DayInfo[] {
   const now = new Date();
-  return getWeekDaysForDate(now, now);
+  return getWeekDaysForDate(now, now, weekStart);
 }
 
-export function getFallbackWeekDays(): DayInfo[] {
+export function getFallbackWeekDays(weekStart: WeekStartDay = "monday"): DayInfo[] {
   // Deterministic 2026-10-16 for static prerender
   const fallback = new Date(2026, 9, 16, 12, 0, 0);
-  return getWeekDaysForDate(fallback, fallback);
+  return getWeekDaysForDate(fallback, fallback, weekStart);
 }
 
 export function getWeekIsoRange(weekDays: DayInfo[]): {
