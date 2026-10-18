@@ -28,14 +28,10 @@ export default function Header() {
     <header className="px-4 sm:px-6 pt-4 sm:pt-5 pb-2.5 sm:pb-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          {/* Top Badge: 24D STREAK */}
+          {/* Top Badge: 🔥 26D STREAK */}
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-[#FF4F00]/10 dark:bg-[#FF4F00]/15 text-[#FF4F00] border border-[#FF4F00]/25 dark:border-[#FF4F00]/30 rounded-md flex items-center gap-1 font-bold">
-              <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-2-3.5-2-5.5C8 2 9.5 1 12 1c2.5 0 4 1 4 3.5 0 2-1 3.36-2 5.5-.5 1-1 1.62-1 3a2.5 2.5 0 0 0 2.5 2.5" />
-                <path d="M12 14v8" />
-                <path d="M8 22h8" />
-              </svg>
+            <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-[#FF4F00]/10 dark:bg-[#FF4F00]/15 text-[#FF4F00] border border-[#FF4F00]/25 dark:border-[#FF4F00]/30 rounded-md flex items-center gap-1.5 font-bold">
+              <span className="text-xs leading-none">🔥</span>
               <span>{bestStreak}D STREAK</span>
             </span>
           </div>

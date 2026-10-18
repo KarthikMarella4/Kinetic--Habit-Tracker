@@ -9,8 +9,15 @@ interface HabitsListProps {
 }
 
 export default function HabitsList({ onOpenModal }: HabitsListProps) {
-  const { habits, selectedCategory, setSelectedCategory, selectedDayIso, weekDays, todayObj } =
-    useHabits();
+  const {
+    habits,
+    selectedCategory,
+    setSelectedCategory,
+    selectedDayIso,
+    weekDays,
+    todayObj,
+    isHabitActiveOnDate,
+  } = useHabits();
 
   const activeDay = weekDays.find((d) => d.iso === selectedDayIso) || todayObj;
 
@@ -20,10 +27,26 @@ export default function HabitsList({ onOpenModal }: HabitsListProps) {
     .filter((cat) => !defaultCategories.includes(cat));
   const categories = [...defaultCategories, ...Array.from(new Set(customCategories))];
 
+  // Filter habits active on selected day using strict scheduling rules & prevent duplicates
+  const activeForDayRaw = habits.filter((h) => isHabitActiveOnDate(h, selectedDayIso));
+  const activeForDayHabits = Array.from(
+    new Map(activeForDayRaw.map((h) => [h.id, h])).values()
+  );
+
   const filtered =
     selectedCategory === "ALL" || selectedCategory === "All"
-      ? habits
-      : habits.filter((h) => h.category.toUpperCase() === selectedCategory.toUpperCase());
+      ? activeForDayHabits
+      : activeForDayHabits.filter((h) => h.category.toUpperCase() === selectedCategory.toUpperCase());
+
+  // Goals scheduled for upcoming future dates
+  const scheduledFutureHabits = habits.filter((h) => {
+    const sType = h.scheduleType || "daily";
+    if (sType === "schedule") {
+      const target = h.scheduledDate || h.startDate || "";
+      return target > selectedDayIso;
+    }
+    return false;
+  });
 
   return (
     <section className="px-3.5 sm:px-6">
@@ -85,6 +108,21 @@ export default function HabitsList({ onOpenModal }: HabitsListProps) {
           filtered.map((habit) => (
             <HabitCard key={habit.id} habit={habit} onEdit={(id) => onOpenModal(id)} />
           ))
+        )}
+
+        {/* Notice for goals scheduled for upcoming dates */}
+        {scheduledFutureHabits.length > 0 && activeDay.isToday && (
+          <div className="mt-3 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-zinc-600 dark:text-zinc-300 font-semibold">
+                {scheduledFutureHabits.length} goal{scheduledFutureHabits.length > 1 ? "s" : ""} scheduled for upcoming dates
+              </span>
+            </div>
+            <span className="text-[10px] text-[#FF4F00] font-bold uppercase tracking-wider">
+              Scheduled
+            </span>
+          </div>
         )}
       </div>
     </section>

@@ -10,16 +10,19 @@ export default function AnalyticsView() {
     getLogValue,
     calculateHabitStreak,
     toggleMatrixCell,
+    isHabitActiveOnDate,
   } = useHabits();
 
-  // Weekly metrics
-  const totalPossible = habits.length * 7;
+  // Weekly metrics: only count days where habits were actually active per schedule rules
+  let totalPossible = 0;
   let totalCompleted = 0;
   let perfectDays = 0;
   weekDays.forEach((d) => {
+    const activeForDay = habits.filter((h) => isHabitActiveOnDate(h, d.iso));
+    totalPossible += activeForDay.length;
     const dayDone = getDayCompletedCount(d.iso);
     totalCompleted += dayDone;
-    if (habits.length > 0 && dayDone === habits.length) perfectDays++;
+    if (activeForDay.length > 0 && dayDone === activeForDay.length) perfectDays++;
   });
   const weeklyRate = totalPossible > 0 ? Math.round((totalCompleted / totalPossible) * 100) : 0;
   const maxStreak = habits.reduce((max, h) => Math.max(max, calculateHabitStreak(h)), 0);
@@ -91,6 +94,19 @@ export default function AnalyticsView() {
               </div>
               <div className="col-span-7 grid grid-cols-7 gap-1 items-center">
                 {weekDays.map((d) => {
+                  const isInactive = !isHabitActiveOnDate(h, d.iso);
+                  if (isInactive) {
+                    return (
+                      <div
+                        key={d.iso}
+                        title={`${h.name}: Not active on ${d.shortDay}`}
+                        className="w-6 h-6 mx-auto rounded-md flex items-center justify-center text-[11px] font-mono font-bold text-zinc-300 dark:text-zinc-700 select-none"
+                      >
+                        —
+                      </div>
+                    );
+                  }
+
                   const val = getLogValue(h, d.iso);
                   const done = val >= h.target;
                   const partial = val > 0 && val < h.target;

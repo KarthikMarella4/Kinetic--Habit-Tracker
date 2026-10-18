@@ -1,9 +1,35 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { Habit, DayInfo } from "@/lib/types";
-import { getCurrentWeekDays, getFallbackWeekDays, getWeekDaysForDate } from "@/lib/dates";
+import { Habit, DayInfo, HabitFormData, GoalScheduleType } from "@/lib/types";
+import { getCurrentWeekDays, getFallbackWeekDays, getWeekDaysForDate, getTodayIso, getTomorrowIso, getTomorrowIsoFrom } from "@/lib/dates";
 import { createDefaultDemoHabits } from "@/lib/demoData";
+
+export function isHabitActiveOnDate(
+  habit: Habit,
+  isoDate: string,
+  todayIso: string
+): boolean {
+  const scheduleType: GoalScheduleType = habit.scheduleType || "daily";
+
+  if (scheduleType === "today") {
+    // Today: The goal should appear only on the current day. It must not appear on any future dates.
+    const targetDate = habit.scheduledDate || habit.startDate || todayIso;
+    return isoDate === targetDate && isoDate <= todayIso;
+  }
+
+  if (scheduleType === "schedule") {
+    // Schedule: The goal should appear only on the specific scheduled date or dates selected by the user.
+    // Do not automatically display the goal on additional future dates that were not selected.
+    const targetDate = habit.scheduledDate || habit.startDate;
+    return isoDate === targetDate;
+  }
+
+  // Daily: The goal should appear every day of the month, including today and all subsequent days in the current month.
+  // It should follow the calendar dates correctly.
+  const start = habit.startDate || todayIso;
+  return !habit.startDate || isoDate >= start;
+}
 
 interface HabitsContextType {
   habits: Habit[];
@@ -17,8 +43,8 @@ interface HabitsContextType {
   setActiveTab: (tab: "dashboard" | "analytics" | "manage") => void;
   loading: boolean;
   fetchHabits: () => Promise<void>;
-  createHabit: (data: { name: string; category: string; color: string; target: number; unit: string }) => Promise<void>;
-  updateHabit: (id: string, data: { name: string; category: string; color: string; target: number; unit: string }) => Promise<void>;
+  createHabit: (data: HabitFormData) => Promise<void>;
+  updateHabit: (id: string, data: Partial<HabitFormData>) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
   moveHabitUp: (habitId: string) => void;
   moveHabitDown: (habitId: string) => void;
@@ -30,6 +56,7 @@ interface HabitsContextType {
   getDayCompletionPercent: (isoDate: string) => number;
   getDayCompletedCount: (isoDate: string) => number;
   calculateHabitStreak: (habit: Habit) => number;
+  isHabitActiveOnDate: (habit: Habit, isoDate: string) => boolean;
   userName: string;
   setUserName: (name: string) => void;
   clearAllData: () => Promise<void>;
@@ -38,6 +65,8 @@ interface HabitsContextType {
   jumpToToday: () => void;
   isCurrentWeek: boolean;
   weekOffset: number;
+  todayIso: string;
+  tomorrowIso: string;
   toast: string | null;
   showToast: (msg: string) => void;
 }
@@ -62,6 +91,8 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
 
   const [weekDays, setWeekDays] = useState<DayInfo[]>(() => getFallbackWeekDays());
   const todayObj = weekDays.find((d) => d.isToday) || weekDays[4];
+  const todayIso = todayObj.iso;
+  const tomorrowIso = getTomorrowIsoFrom(todayIso);
   const [selectedDayIso, setSelectedDayIso] = useState(todayObj.iso);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "manage">("dashboard");
@@ -157,39 +188,52 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     return log?.value ?? 0;
   }, []);
 
+  const checkIsHabitActive = useCallback(
+    (habit: Habit, isoDate: string): boolean => {
+      return isHabitActiveOnDate(habit, isoDate, todayIso);
+    },
+    [todayIso]
+  );
+
   const getDayCompletionPercent = useCallback(
     (isoDate: string): number => {
-      if (habits.length === 0) return 0;
+      // Only include habits that are active on this day per scheduling rules
+      const activeForDay = habits.filter((h) => checkIsHabitActive(h, isoDate));
+      if (activeForDay.length === 0) return 0;
       let totalScore = 0;
-      habits.forEach((h) => {
+      activeForDay.forEach((h) => {
         const val = getLogValue(h, isoDate);
         totalScore += Math.min(1, val / h.target);
       });
-      return Math.round((totalScore / habits.length) * 100);
+      return Math.round((totalScore / activeForDay.length) * 100);
     },
-    [habits, getLogValue]
+    [habits, checkIsHabitActive, getLogValue]
   );
 
   const getDayCompletedCount = useCallback(
     (isoDate: string): number => {
+      const activeForDay = habits.filter((h) => checkIsHabitActive(h, isoDate));
       let completed = 0;
-      habits.forEach((h) => {
+      activeForDay.forEach((h) => {
         if (getLogValue(h, isoDate) >= h.target) completed++;
       });
       return completed;
     },
-    [habits, getLogValue]
+    [habits, checkIsHabitActive, getLogValue]
   );
 
   const calculateHabitStreak = useCallback(
     (habit: Habit): number => {
       let currentWeekComplete = 0;
       weekDays.forEach((d) => {
-        if (getLogValue(habit, d.iso) >= habit.target) currentWeekComplete++;
+        // Only count days where the habit was active
+        if (checkIsHabitActive(habit, d.iso)) {
+          if (getLogValue(habit, d.iso) >= habit.target) currentWeekComplete++;
+        }
       });
       return (habit.streak || 0) + currentWeekComplete;
     },
-    [weekDays, getLogValue]
+    [weekDays, checkIsHabitActive, getLogValue]
   );
 
   const upsertLog = useCallback(
@@ -289,7 +333,22 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   );
 
   const createHabit = useCallback(
-    async (data: { name: string; category: string; color: string; target: number; unit: string }) => {
+    async (data: HabitFormData) => {
+      const scheduleType: GoalScheduleType = data.scheduleType || "daily";
+      let scheduledDate = data.scheduledDate;
+      let startDate = data.startDate;
+
+      if (scheduleType === "today") {
+        startDate = todayIso;
+        scheduledDate = todayIso;
+      } else if (scheduleType === "daily") {
+        startDate = data.startDate || todayIso;
+        scheduledDate = undefined;
+      } else if (scheduleType === "schedule") {
+        scheduledDate = data.scheduledDate || tomorrowIso;
+        startDate = scheduledDate;
+      }
+
       const newHabit: Habit = {
         id: `habit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         name: data.name,
@@ -301,6 +360,10 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         order: habits.length,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        startDate,
+        scheduleType,
+        scheduledDate,
+        timerMinutes: data.timerMinutes,
         logs: [],
       };
 
@@ -310,22 +373,28 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         return next;
       });
 
-      showToast("New Protocol Added");
+      showToast("New Goal Added");
 
       // Background server sync if available
       try {
         await fetch("/api/habits", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            name: data.name,
+            category: data.category,
+            color: data.color,
+            target: data.target,
+            unit: data.unit,
+          }),
         });
       } catch (_) {}
     },
-    [habits.length, saveLocalHabits, showToast]
+    [habits.length, todayIso, tomorrowIso, saveLocalHabits, showToast]
   );
 
   const updateHabit = useCallback(
-    async (id: string, data: { name: string; category: string; color: string; target: number; unit: string }) => {
+    async (id: string, data: Partial<HabitFormData>) => {
       setHabits((prev) => {
         const next = prev.map((h) =>
           h.id === id ? { ...h, ...data, updatedAt: new Date().toISOString() } : h
@@ -334,7 +403,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         return next;
       });
 
-      showToast("Habit Updated");
+      showToast("Goal Updated");
 
       try {
         await fetch(`/api/habits/${id}`, {
@@ -506,10 +575,13 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         jumpToToday,
         isCurrentWeek,
         weekOffset,
+        todayIso,
+        tomorrowIso,
         getLogValue,
         getDayCompletionPercent,
         getDayCompletedCount,
         calculateHabitStreak,
+        isHabitActiveOnDate: checkIsHabitActive,
         toast,
         showToast,
       }}

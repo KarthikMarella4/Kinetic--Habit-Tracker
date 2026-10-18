@@ -5,6 +5,8 @@ export interface HabitLog {
   value: number;
 }
 
+export type GoalScheduleType = "today" | "daily" | "schedule";
+
 export interface Habit {
   id: string;
   name: string;
@@ -17,6 +19,10 @@ export interface Habit {
   createdAt: string;
   updatedAt: string;
   logs: HabitLog[];
+  timerMinutes?: number;
+  startDate?: string; // ISO date YYYY-MM-DD
+  scheduleType?: GoalScheduleType;
+  scheduledDate?: string; // ISO date YYYY-MM-DD for "schedule" or "today"
 }
 
 export interface HabitFormData {
@@ -25,6 +31,10 @@ export interface HabitFormData {
   color: string;
   target: number;
   unit: string;
+  timerMinutes?: number;
+  startDate?: string;
+  scheduleType?: GoalScheduleType;
+  scheduledDate?: string;
 }
 
 export interface DayInfo {

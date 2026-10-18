@@ -7,20 +7,21 @@ export function createDefaultDemoHabits(weekDays: DayInfo[]): Habit[] {
   return [
     {
       id: "demo-habit-1",
-      name: "Deep Work: Core Architecture",
+      name: "45m Core Architecture",
       category: "Deep Work",
       color: "#FF4F00",
-      target: 2,
-      unit: "blocks",
+      target: 1,
+      unit: "session",
       streak: 14,
       order: 0,
       createdAt: now,
       updatedAt: now,
+      timerMinutes: 45,
       logs: [
-        { id: "log-1-0", habitId: "demo-habit-1", date: dates[0], value: 2 },
-        { id: "log-1-1", habitId: "demo-habit-1", date: dates[1], value: 2 },
-        { id: "log-1-2", habitId: "demo-habit-1", date: dates[2], value: 2 },
-        { id: "log-1-3", habitId: "demo-habit-1", date: dates[3], value: 2 },
+        { id: "log-1-0", habitId: "demo-habit-1", date: dates[0], value: 1 },
+        { id: "log-1-1", habitId: "demo-habit-1", date: dates[1], value: 1 },
+        { id: "log-1-2", habitId: "demo-habit-1", date: dates[2], value: 1 },
+        { id: "log-1-3", habitId: "demo-habit-1", date: dates[3], value: 1 },
         { id: "log-1-4", habitId: "demo-habit-1", date: dates[4], value: 1 },
         { id: "log-1-5", habitId: "demo-habit-1", date: dates[5], value: 0 },
         { id: "log-1-6", habitId: "demo-habit-1", date: dates[6], value: 0 },
@@ -28,7 +29,7 @@ export function createDefaultDemoHabits(weekDays: DayInfo[]): Habit[] {
     },
     {
       id: "demo-habit-2",
-      name: "Strength & Mobility Session",
+      name: "30m Strength & Mobility",
       category: "Fitness",
       color: "#10B981",
       target: 1,
@@ -37,6 +38,7 @@ export function createDefaultDemoHabits(weekDays: DayInfo[]): Habit[] {
       order: 1,
       createdAt: now,
       updatedAt: now,
+      timerMinutes: 30,
       logs: [
         { id: "log-2-0", habitId: "demo-habit-2", date: dates[0], value: 1 },
         { id: "log-2-1", habitId: "demo-habit-2", date: dates[1], value: 1 },
@@ -70,7 +72,7 @@ export function createDefaultDemoHabits(weekDays: DayInfo[]): Habit[] {
     },
     {
       id: "demo-habit-4",
-      name: "Read Technical Papers / Books",
+      name: "20m Technical Reading",
       category: "Learning",
       color: "#7C3AED",
       target: 20,
@@ -79,6 +81,7 @@ export function createDefaultDemoHabits(weekDays: DayInfo[]): Habit[] {
       order: 3,
       createdAt: now,
       updatedAt: now,
+      timerMinutes: 20,
       logs: [
         { id: "log-4-0", habitId: "demo-habit-4", date: dates[0], value: 20 },
         { id: "log-4-1", habitId: "demo-habit-4", date: dates[1], value: 15 },

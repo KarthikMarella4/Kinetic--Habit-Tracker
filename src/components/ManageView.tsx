@@ -1,7 +1,8 @@
 "use client";
 
 import { useHabits } from "./HabitsProvider";
-import { Plus, ArrowUp, ArrowDown, Edit3, Trash2, Zap, Target, Layers } from "lucide-react";
+import { Plus, ArrowUp, ArrowDown, Edit3, Trash2, Zap, Target, Layers, Timer } from "lucide-react";
+import { parseHabitDuration } from "./HabitCard";
 import { useState } from "react";
 
 interface ManageViewProps {
@@ -9,7 +10,15 @@ interface ManageViewProps {
 }
 
 export default function ManageView({ onOpenModal }: ManageViewProps) {
-  const { habits, moveHabitUp, moveHabitDown, deleteHabit, calculateHabitStreak } = useHabits();
+  const {
+    habits,
+    moveHabitUp,
+    moveHabitDown,
+    deleteHabit,
+    calculateHabitStreak,
+    todayIso,
+    updateHabit,
+  } = useHabits();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const totalDailySteps = habits.reduce((acc, h) => acc + h.target, 0);
@@ -134,6 +143,12 @@ export default function ManageView({ onOpenModal }: ManageViewProps) {
                         <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
                         {streak}d streak
                       </span>
+                      {parseHabitDuration(habit) && (
+                        <span className="text-[9.5px] font-mono text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center gap-1 font-semibold">
+                          <Timer className="w-3 h-3 text-[#FF4F00]" />
+                          {parseHabitDuration(habit)}m
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="text-sm font-bold text-zinc-900 dark:text-white mt-1 truncate">
@@ -146,6 +161,41 @@ export default function ManageView({ onOpenModal }: ManageViewProps) {
                         {habit.target} {habit.unit}/day
                       </span>
                     </div>
+
+                    {/* Schedule Badges */}
+                    {habit.scheduleType === "today" ? (
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="text-[9.5px] font-mono font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
+                          Today Only
+                        </span>
+                      </div>
+                    ) : habit.scheduleType === "schedule" ? (
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="text-[9.5px] font-mono font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                          Scheduled: {habit.scheduledDate || habit.startDate}
+                        </span>
+                        {(habit.scheduledDate || habit.startDate || "") > todayIso && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateHabit(habit.id, {
+                                scheduleType: "daily",
+                                startDate: todayIso,
+                              })
+                            }
+                            className="text-[10px] font-mono font-bold text-[#FF4F00] hover:underline cursor-pointer"
+                          >
+                            + Activate Daily Today
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="text-[9.5px] font-mono font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                          Daily
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions: Reorder + Edit + Delete */}
