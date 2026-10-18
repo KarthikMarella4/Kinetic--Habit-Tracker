@@ -39,8 +39,8 @@ function AppShell() {
         {/* Global Toast */}
         <Toast />
 
-        {/* Header Section directly on continuous grid */}
-        <Header />
+        {/* Header Section directly on continuous grid (hidden on manage tab) */}
+        {activeTab !== "manage" && <Header />}
 
         {/* Main Scrollable View with continuous blueprint grid */}
         <main className="flex-1 overflow-y-auto kinetic-grid-bg">
@@ -62,7 +62,7 @@ function AppShell() {
               <AnalyticsView />
             </div>
           ) : (
-            <div className="pt-2 pb-4">
+            <div className="pt-3.5 pb-4">
               <ManageView onOpenModal={handleOpenModal} />
             </div>
           )}

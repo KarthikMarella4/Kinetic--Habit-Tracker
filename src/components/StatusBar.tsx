@@ -32,45 +32,45 @@ export default function StatusBar({ onOpenSettings }: StatusBarProps) {
       setIsDark(false);
       try {
         localStorage.setItem("kinetic_theme_v2", "light");
-      } catch (_) {}
+      } catch (_) { }
     } else {
       html.classList.add("dark");
       setIsDark(true);
       try {
         localStorage.setItem("kinetic_theme_v2", "dark");
-      } catch (_) {}
+      } catch (_) { }
     }
   };
 
   return (
-    <div className="pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-2 px-3.5 sm:px-5 flex items-center justify-between border-b border-zinc-200/90 dark:border-zinc-800/80 bg-white/95 dark:bg-[#18181b]/95 backdrop-blur-md z-20 transition-colors">
+    <div className="pt-[max(0.95rem,env(safe-area-inset-top,0px))] pb-3 sm:pb-3.5 px-4 sm:px-6 flex items-center justify-between border-b border-zinc-200/90 dark:border-zinc-800/80 bg-white/95 dark:bg-[#18181b]/95 backdrop-blur-md z-20 transition-colors">
       {/* Top Left: KINETIC Logo & Branding */}
-      <div className="flex items-center gap-2 select-none">
+      <div className="flex items-center gap-2.5 select-none">
         <img
           src="/icon-512.jpg"
           alt="KINETIC Logo"
-          className="w-5 h-5 rounded-md object-cover border border-[#FF4F00]/40 shadow-xs"
+          className="w-7 h-7 rounded-lg object-cover border border-[#FF4F00]/40 shadow-xs"
         />
-        <span className="text-xs font-mono font-extrabold tracking-[0.22em] text-[#FF4F00]">
+        <span className="text-sm sm:text-[15px] font-mono font-black tracking-[0.24em] text-[#FF4F00]">
           KINETIC
         </span>
       </div>
 
       {/* Top Right: Actions (Theme Toggle & Settings) */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         <button
           onClick={toggleTheme}
           aria-label="Toggle Dark / Light Mode"
-          className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+          className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-all active:scale-95"
         >
-          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-700" />}
+          {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-zinc-700" />}
         </button>
         <button
           onClick={onOpenSettings}
           aria-label="App Settings & Data Reset"
-          className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-[#FF4F00] dark:hover:text-[#FF4F00] transition-colors"
+          className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-[#FF4F00] dark:hover:text-[#FF4F00] transition-all active:scale-95"
         >
-          <Settings className="w-4 h-4" />
+          <Settings className="w-5 h-5" />
         </button>
       </div>
     </div>

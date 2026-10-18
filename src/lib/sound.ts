@@ -66,7 +66,7 @@ function getAudioContext(): AudioContext | null {
       sharedAudioContext = new AudioContextClass();
     }
     if (sharedAudioContext.state === "suspended") {
-      sharedAudioContext.resume().catch(() => {});
+      sharedAudioContext.resume().catch(() => { });
     }
     return sharedAudioContext;
   } catch (_) {
@@ -80,9 +80,9 @@ export function unlockAudio() {
   try {
     const ctx = getAudioContext();
     if (ctx && ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch(() => { });
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // Automatically listen for first user interaction to unlock audio
@@ -105,7 +105,7 @@ export function getSavedSoundProfile(): SoundProfile {
     if (saved && ["swiss", "zen", "fanfare", "melody", "pulse", "mute"].includes(saved)) {
       return saved;
     }
-  } catch (_) {}
+  } catch (_) { }
   return "swiss";
 }
 
@@ -113,7 +113,7 @@ export function setSavedSoundProfile(profile: SoundProfile): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(SOUND_STORAGE_KEY, profile);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function getSavedSoundVolume(): number {
@@ -126,7 +126,7 @@ export function getSavedSoundVolume(): number {
         return val;
       }
     }
-  } catch (_) {}
+  } catch (_) { }
   return 0.8;
 }
 
@@ -135,7 +135,7 @@ export function setSavedSoundVolume(vol: number): void {
   try {
     const clamped = Math.max(0, Math.min(1, vol));
     localStorage.setItem(SOUND_VOLUME_KEY, clamped.toString());
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function triggerHaptic() {
@@ -144,7 +144,7 @@ export function triggerHaptic() {
     if ("vibrate" in navigator && typeof navigator.vibrate === "function") {
       navigator.vibrate([100, 50, 150]);
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // 1. Swiss Crystal Chime (3-note ascending bell)

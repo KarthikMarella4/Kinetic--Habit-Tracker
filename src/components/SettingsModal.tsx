@@ -302,11 +302,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   type="button"
                   onClick={() => handlePreviewSound(selectedSound)}
                   title="Test selected sound"
-                  className={`shrink-0 px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs ${
-                    previewingSound === selectedSound
+                  className={`shrink-0 px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs ${previewingSound === selectedSound
                       ? "bg-[#FF4F00] text-white animate-pulse"
                       : "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:opacity-90 active:scale-95"
-                  }`}
+                    }`}
                 >
                   {previewingSound === selectedSound ? (
                     <>
@@ -407,11 +406,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     const days = Number(e.target.value);
                     setStreakFreeze(days);
                   }}
-                  className={`w-full appearance-none pl-3 pr-8 py-2 rounded-xl bg-white dark:bg-zinc-950 border text-xs font-mono font-medium focus:outline-none transition-colors ${
-                    isFreezeActive
+                  className={`w-full appearance-none pl-3 pr-8 py-2 rounded-xl bg-white dark:bg-zinc-950 border text-xs font-mono font-medium focus:outline-none transition-colors ${isFreezeActive
                       ? "border-cyan-500/80 text-cyan-500 font-bold"
                       : "border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white focus:border-[#FF4F00]"
-                  }`}
+                    }`}
                 >
                   <option value="0">Off (Normal Daily Tracking)</option>
                   <option value="1">❄️ Freeze 1 Day (Today)</option>
@@ -503,22 +501,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       <button
                         type="button"
                         onClick={() => handleTimeChange(reminderHour, reminderMinute, "AM")}
-                        className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
-                          reminderPeriod === "AM"
+                        className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${reminderPeriod === "AM"
                             ? "bg-[#FF4F00] text-white shadow-xs"
                             : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                        }`}
+                          }`}
                       >
                         AM
                       </button>
                       <button
                         type="button"
                         onClick={() => handleTimeChange(reminderHour, reminderMinute, "PM")}
-                        className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
-                          reminderPeriod === "PM"
+                        className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${reminderPeriod === "PM"
                             ? "bg-[#FF4F00] text-white shadow-xs"
                             : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                        }`}
+                          }`}
                       >
                         PM
                       </button>
@@ -612,11 +608,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   type="button"
                   onClick={handleClearAll}
                   disabled={isResetting}
-                  className={`shrink-0 px-3 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50 ${
-                    confirmClear
+                  className={`shrink-0 px-3 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50 ${confirmClear
                       ? "bg-rose-600 text-white animate-pulse"
                       : "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-900 hover:bg-rose-600 hover:text-white active:scale-95"
-                  }`}
+                    }`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{confirmClear ? "Confirm?" : "Clear"}</span>
