@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { HabitsProvider, useHabits } from "@/components/HabitsProvider";
+import PinLock from "@/components/PinLock";
 import StatusBar from "@/components/StatusBar";
 import Header from "@/components/Header";
 import DayStrip from "@/components/DayStrip";
@@ -92,8 +93,10 @@ function AppShell() {
 
 export default function Home() {
   return (
-    <HabitsProvider>
-      <AppShell />
-    </HabitsProvider>
+    <PinLock>
+      <HabitsProvider>
+        <AppShell />
+      </HabitsProvider>
+    </PinLock>
   );
 }
