@@ -18,7 +18,11 @@ import {
   Download,
   Upload,
   Sliders,
+  Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import { getSavedPin, setSavedPin } from "./PinLock";
 import {
   SOUND_OPTIONS,
   SoundProfile,
@@ -92,12 +96,29 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [reminderMinute, setReminderMinute] = useState("00");
   const [reminderPeriod, setReminderPeriod] = useState<"AM" | "PM">("PM");
 
+  // Change PIN state
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [pinSuccess, setPinSuccess] = useState(false);
+  const [showCurrentPin, setShowCurrentPin] = useState(false);
+  const [showNewPin, setShowNewPin] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setNameInput(userName);
     setConfirmClear(false);
     setDataAction("restore");
+    // Reset PIN fields
+    setCurrentPin("");
+    setNewPin("");
+    setConfirmPin("");
+    setPinError("");
+    setPinSuccess(false);
+    setShowCurrentPin(false);
+    setShowNewPin(false);
     if (isOpen) {
       setSelectedSound(getSavedSoundProfile());
       setSoundVolume(Math.round(getSavedSoundVolume() * 100));
@@ -202,6 +223,36 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setIsResetting(false);
     setConfirmClear(false);
     onClose();
+  };
+
+  const handleChangePin = () => {
+    setPinError("");
+    setPinSuccess(false);
+
+    if (currentPin !== getSavedPin()) {
+      setPinError("Current PIN is incorrect");
+      return;
+    }
+    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+      setPinError("New PIN must be exactly 4 digits");
+      return;
+    }
+    if (newPin !== confirmPin) {
+      setPinError("New PINs don't match");
+      return;
+    }
+    if (newPin === currentPin) {
+      setPinError("New PIN must be different");
+      return;
+    }
+
+    setSavedPin(newPin);
+    setPinSuccess(true);
+    setCurrentPin("");
+    setNewPin("");
+    setConfirmPin("");
+    showToast("Access PIN Updated");
+    setTimeout(() => setPinSuccess(false), 3000);
   };
 
   return (
@@ -525,7 +576,118 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
 
-          {/* Section 4: Data Management & Backup */}
+          {/* Section 4: Change Access PIN */}
+          <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Lock className="w-4 h-4 text-[#FF4F00]" />
+              <h4 className="text-xs font-mono uppercase font-bold tracking-wider text-zinc-800 dark:text-zinc-200">
+                Change Access PIN
+              </h4>
+            </div>
+
+            {/* Current PIN */}
+            <div>
+              <label className="text-[11px] font-mono font-semibold text-zinc-600 dark:text-zinc-400 mb-1 block">
+                Current PIN
+              </label>
+              <div className="relative">
+                <input
+                  type={showCurrentPin ? "text" : "password"}
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={currentPin}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    setCurrentPin(val);
+                    setPinError("");
+                  }}
+                  placeholder="••••"
+                  className="w-full px-3 py-2 pr-10 text-base sm:text-sm font-mono font-bold tracking-[0.3em] rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:border-[#FF4F00] text-center"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPin(!showCurrentPin)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                >
+                  {showCurrentPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* New PIN */}
+            <div>
+              <label className="text-[11px] font-mono font-semibold text-zinc-600 dark:text-zinc-400 mb-1 block">
+                New PIN
+              </label>
+              <div className="relative">
+                <input
+                  type={showNewPin ? "text" : "password"}
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={newPin}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    setNewPin(val);
+                    setPinError("");
+                  }}
+                  placeholder="••••"
+                  className="w-full px-3 py-2 pr-10 text-base sm:text-sm font-mono font-bold tracking-[0.3em] rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:border-[#FF4F00] text-center"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPin(!showNewPin)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                >
+                  {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm New PIN */}
+            <div>
+              <label className="text-[11px] font-mono font-semibold text-zinc-600 dark:text-zinc-400 mb-1 block">
+                Confirm New PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={confirmPin}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                  setConfirmPin(val);
+                  setPinError("");
+                }}
+                placeholder="••••"
+                className="w-full px-3 py-2 text-base sm:text-sm font-mono font-bold tracking-[0.3em] rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:border-[#FF4F00] text-center"
+              />
+            </div>
+
+            {/* Error / Success */}
+            {pinError && (
+              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[11px] font-mono text-rose-600 dark:text-rose-400 animate-pop text-center">
+                ⚠️ {pinError}
+              </div>
+            )}
+            {pinSuccess && (
+              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-mono text-emerald-600 dark:text-emerald-400 animate-pop text-center">
+                ✅ PIN updated successfully
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button
+              type="button"
+              onClick={handleChangePin}
+              disabled={!currentPin || !newPin || !confirmPin}
+              className="w-full py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-mono font-bold uppercase tracking-wider hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Update PIN</span>
+            </button>
+          </div>
+
+          {/* Section 5: Data Management & Backup */}
           <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-[#FF4F00]" />
