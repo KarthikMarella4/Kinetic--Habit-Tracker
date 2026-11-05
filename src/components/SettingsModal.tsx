@@ -107,6 +107,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [showCurrentPin, setShowCurrentPin] = useState(false);
   const [showNewPin, setShowNewPin] = useState(false);
 
+  // Desktop ⇄ Mobile Quick Sync state (must be at top level before any early return)
+  const [syncCodeInput, setSyncCodeInput] = useState("");
+  const [showSyncInput, setShowSyncInput] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -121,6 +125,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setPinSuccess(false);
     setShowCurrentPin(false);
     setShowNewPin(false);
+    setSyncCodeInput("");
+    setShowSyncInput(false);
     if (isOpen) {
       setSelectedSound(getSavedSoundProfile());
       setSoundVolume(Math.round(getSavedSoundVolume() * 100));
@@ -208,15 +214,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     e.target.value = "";
   };
 
-  const [syncCodeInput, setSyncCodeInput] = useState("");
-  const [showSyncInput, setShowSyncInput] = useState(false);
-
   const handleCopySyncCode = () => {
     try {
       const backup = exportBackupData();
       const jsonStr = JSON.stringify(backup);
       const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
-      navigator.clipboard.writeText(base64);
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        navigator.clipboard.writeText(base64).catch(() => {});
+      }
       showToast("Sync Code Copied to Clipboard!");
     } catch (_) {
       showToast("Failed to copy sync code");
