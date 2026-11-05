@@ -1,6 +1,7 @@
 "use client";
 
 import { useHabits } from "./HabitsProvider";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function AnalyticsView() {
   const {
@@ -11,6 +12,10 @@ export default function AnalyticsView() {
     calculateHabitStreak,
     toggleMatrixCell,
     isHabitActiveOnDate,
+    goToPreviousWeek,
+    goToNextWeek,
+    jumpToToday,
+    isCurrentWeek,
   } = useHabits();
 
   // Weekly metrics: only count days where habits were actually active per schedule rules
@@ -56,16 +61,43 @@ export default function AnalyticsView() {
 
       {/* 7-Day Habit Matrix */}
       <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 sm:p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div>
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-tight text-zinc-900 dark:text-white">Consistency Matrix</h3>
             <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
               Tap cell to toggle status
             </p>
           </div>
-          <span className="text-[9px] sm:text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold">
-            {weekDays[0].month} {weekDays[0].dateNum} — {weekDays[6].month} {weekDays[6].dateNum}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={goToPreviousWeek}
+              title="Previous Week"
+              className="p-1 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-[9px] sm:text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold">
+              {weekDays[0].month} {weekDays[0].dateNum} — {weekDays[6].month} {weekDays[6].dateNum}
+            </span>
+            <button
+              type="button"
+              onClick={goToNextWeek}
+              title="Next Week"
+              className="p-1 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            {!isCurrentWeek && (
+              <button
+                type="button"
+                onClick={jumpToToday}
+                className="text-[9px] font-mono font-bold text-[#FF4F00] uppercase tracking-wider hover:underline ml-1"
+              >
+                Today
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto pb-1 -mx-1 px-1">

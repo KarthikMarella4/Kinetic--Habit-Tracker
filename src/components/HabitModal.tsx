@@ -12,7 +12,7 @@ interface HabitModalProps {
 }
 
 export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalProps) {
-  const { habits, createHabit, updateHabit, deleteHabit, todayIso, tomorrowIso } = useHabits();
+  const { habits, createHabit, updateHabit, deleteHabit, todayIso, tomorrowIso, selectedDayIso } = useHabits();
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Deep Work");
@@ -80,6 +80,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
         }
       }
     } else {
+      const defaultDate = selectedDayIso || todayIso;
       setName("");
       setCategory("Deep Work");
       setIsCustomCategory(false);
@@ -87,14 +88,14 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
       setColor("#FF4F00");
       setTarget(1);
       setUnit("");
-      setStartDate(todayIso);
+      setStartDate(defaultDate);
       setScheduleType("daily");
-      setScheduledDate(tomorrowIso);
+      setScheduledDate(defaultDate);
       setTimerMinutes(null);
       setIsCustomTimer(false);
       setCustomTimerValue("");
     }
-  }, [editHabitId, habits, isOpen, todayIso, tomorrowIso]);
+  }, [editHabitId, habits, isOpen, todayIso, tomorrowIso, selectedDayIso]);
 
   if (!isOpen) return null;
 
@@ -130,16 +131,20 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
       ? parseInt(customTimerValue, 10) || null
       : timerMinutes;
 
+    const defaultDate = selectedDayIso || todayIso;
+
     const finalStartDate =
-      scheduleType === "schedule"
-        ? (scheduledDate || tomorrowIso)
-        : todayIso;
+      scheduleType === "daily"
+        ? (startDate || defaultDate)
+        : scheduleType === "schedule"
+        ? (scheduledDate || defaultDate)
+        : defaultDate;
 
     const finalScheduledDate =
       scheduleType === "schedule"
-        ? (scheduledDate || tomorrowIso)
+        ? (scheduledDate || defaultDate)
         : scheduleType === "today"
-        ? todayIso
+        ? defaultDate
         : undefined;
 
     const data: HabitFormData = {
@@ -310,22 +315,25 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
                   onChange={(e) => {
                     const val = e.target.value as GoalScheduleType;
                     setScheduleType(val);
+                    const defaultDate = selectedDayIso || todayIso;
                     if (val === "today") {
-                      setStartDate(todayIso);
-                      setScheduledDate(todayIso);
+                      setStartDate(defaultDate);
+                      setScheduledDate(defaultDate);
                     } else if (val === "daily") {
-                      setStartDate(todayIso);
+                      setStartDate(defaultDate);
                     } else if (val === "schedule") {
-                      if (!scheduledDate || scheduledDate < todayIso) {
-                        setScheduledDate(tomorrowIso);
+                      if (!scheduledDate) {
+                        setScheduledDate(defaultDate);
                       }
                     }
                   }}
                   className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-[15px] sm:text-sm font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
                 >
-                  <option value="today">Today</option>
                   <option value="daily">Daily</option>
-                  <option value="schedule">Schedule</option>
+                  <option value="today">
+                    {selectedDayIso === todayIso ? "Today" : `Selected Day (${selectedDayIso})`}
+                  </option>
+                  <option value="schedule">Schedule Date</option>
                 </select>
                 <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -333,24 +341,35 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
               {/* Helper text or date input based on schedule type */}
               {scheduleType === "today" ? (
                 <span className="text-[9.5px] font-mono text-zinc-400 block mt-1 leading-tight">
-                  Today only • No future dates
+                  Active only on {selectedDayIso === todayIso ? "Today" : selectedDayIso}
                 </span>
               ) : scheduleType === "daily" ? (
-                <span className="text-[9.5px] font-mono text-zinc-400 block mt-1 leading-tight">
-                  Repeats daily this month
-                </span>
+                <div className="mt-1.5 animate-pop">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-zinc-500 font-bold uppercase shrink-0">From:</span>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      required
+                      className="w-full px-2 py-0.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-[11px] font-mono font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
+                    />
+                  </div>
+                  <span className="text-[9px] font-mono text-zinc-400 block mt-1 leading-tight">
+                    Active from {startDate === todayIso ? "Today" : startDate} into future weeks
+                  </span>
+                </div>
               ) : (
                 <div className="mt-1.5 animate-pop">
                   <input
                     type="date"
-                    min={todayIso}
                     value={scheduledDate}
                     onChange={(e) => setScheduledDate(e.target.value)}
                     required
                     className="w-full px-2 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-[#FF4F00]/60 text-[12.5px] font-mono font-medium focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
                   />
                   <span className="text-[9px] font-mono text-zinc-400 block mt-1 leading-tight">
-                    Only on {scheduledDate === tomorrowIso ? "Tomorrow" : scheduledDate}
+                    Scheduled for {scheduledDate}
                   </span>
                 </div>
               )}

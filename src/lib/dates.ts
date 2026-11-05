@@ -87,7 +87,8 @@ export function getWeekDaysForDate(
   const fullNames = weekStart === "sunday" ? fullNamesSun : fullNamesMon;
 
   const days: DayInfo[] = [];
-  const todayIso = realToday ? formatLocalIso(realToday) : getTodayIso();
+  // Always use the real current date for "isToday" determination
+  const todayIso = realToday ? formatLocalIso(realToday) : getClientTodayIso();
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(
@@ -111,6 +112,11 @@ export function getWeekDaysForDate(
     });
   }
   return days;
+}
+
+/** Always returns the real client-side today (never a server fallback). */
+export function getClientTodayIso(): string {
+  return formatLocalIso(new Date());
 }
 
 export function getCurrentWeekDays(weekStart: WeekStartDay = "monday"): DayInfo[] {

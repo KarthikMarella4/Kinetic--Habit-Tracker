@@ -13,11 +13,13 @@ export default function Header() {
     calculateHabitStreak,
     userName,
     isFreezeActive,
+    isHabitActiveOnDate,
   } = useHabits();
 
   const activeDay = weekDays.find((d) => d.iso === selectedDayIso) || todayObj;
   const pct = getDayCompletionPercent(selectedDayIso);
   const doneCount = getDayCompletedCount(selectedDayIso);
+  const activeForDay = habits.filter((h) => isHabitActiveOnDate(h, selectedDayIso));
   const bestStreak =
     habits.length > 0 ? habits.reduce((acc, h) => Math.max(acc, calculateHabitStreak(h)), 0) : 0;
 
@@ -90,7 +92,7 @@ export default function Header() {
               {pct}%
             </span>
             <span className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
-              {doneCount}/{habits.length}
+              {doneCount}/{activeForDay.length}
             </span>
           </div>
         </div>

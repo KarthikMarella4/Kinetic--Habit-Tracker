@@ -21,6 +21,8 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Copy,
+  Smartphone,
 } from "lucide-react";
 import { getSavedPin, setSavedPin } from "./PinLock";
 import {
@@ -204,6 +206,34 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  const [syncCodeInput, setSyncCodeInput] = useState("");
+  const [showSyncInput, setShowSyncInput] = useState(false);
+
+  const handleCopySyncCode = () => {
+    try {
+      const backup = exportBackupData();
+      const jsonStr = JSON.stringify(backup);
+      const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
+      navigator.clipboard.writeText(base64);
+      showToast("Sync Code Copied to Clipboard!");
+    } catch (_) {
+      showToast("Failed to copy sync code");
+    }
+  };
+
+  const handleApplySyncCode = async () => {
+    if (!syncCodeInput.trim()) return;
+    try {
+      const jsonStr = decodeURIComponent(escape(atob(syncCodeInput.trim())));
+      const parsed = JSON.parse(jsonStr);
+      await importBackup(parsed);
+      setSyncCodeInput("");
+      setShowSyncInput(false);
+    } catch (_) {
+      showToast("Invalid Sync Code");
+    }
   };
 
   const handleSeedDemo = async () => {
@@ -727,6 +757,57 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 onChange={handleFileSelect}
                 className="hidden"
               />
+            </div>
+
+            {/* Desktop & Mobile Quick Sync */}
+            <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono font-bold uppercase text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-[#FF4F00]" />
+                  <span>Desktop ⇄ Mobile Sync</span>
+                </span>
+                <span className="text-[9.5px] font-mono text-zinc-400">Offline-First</span>
+              </div>
+              <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Data is stored in your device&apos;s browser. Copy this sync code on one device and paste it on the other to instantly sync your habits &amp; logs.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopySyncCode}
+                  className="py-2 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-[#FF4F00] text-zinc-800 dark:text-zinc-200 text-xs font-mono font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <Copy className="w-3.5 h-3.5 text-[#FF4F00]" />
+                  <span>Copy Sync Code</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSyncInput(!showSyncInput)}
+                  className="py-2 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-[#FF4F00] text-zinc-800 dark:text-zinc-200 text-xs font-mono font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <span>{showSyncInput ? "Hide Input" : "Paste Sync Code"}</span>
+                </button>
+              </div>
+
+              {showSyncInput && (
+                <div className="space-y-2 pt-1 animate-pop">
+                  <textarea
+                    rows={2}
+                    value={syncCodeInput}
+                    onChange={(e) => setSyncCodeInput(e.target.value)}
+                    placeholder="Paste your sync code here..."
+                    className="w-full p-2 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-[11px] font-mono focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white resize-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplySyncCode}
+                    disabled={!syncCodeInput.trim()}
+                    className="w-full py-2 rounded-xl bg-[#FF4F00] text-white text-xs font-mono font-bold uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Apply Sync &amp; Replace Data
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Secondary Action Dropdown (Restore / Clear) */}

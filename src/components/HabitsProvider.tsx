@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Habit, DayInfo, HabitFormData, GoalScheduleType } from "@/lib/types";
-import { getCurrentWeekDays, getFallbackWeekDays, getWeekDaysForDate, getTodayIso, getTomorrowIso, getTomorrowIsoFrom, formatLocalIso, WeekStartDay } from "@/lib/dates";
+import { getCurrentWeekDays, getFallbackWeekDays, getWeekDaysForDate, getTodayIso, getTomorrowIso, getTomorrowIsoFrom, formatLocalIso, getClientTodayIso, WeekStartDay } from "@/lib/dates";
 import { createDefaultDemoHabits } from "@/lib/demoData";
 import { playCompletionChime } from "@/lib/sound";
 
@@ -11,25 +11,33 @@ export function isHabitActiveOnDate(
   isoDate: string,
   todayIso: string
 ): boolean {
+  // 1. If habit has any logged progress on this date, always show it!
+  if (habit.logs?.some((l) => l.date === isoDate && l.value > 0)) {
+    return true;
+  }
+
   const scheduleType: GoalScheduleType = habit.scheduleType || "daily";
 
   if (scheduleType === "today") {
-    // Today: The goal should appear only on the current day. It must not appear on any future dates.
+    // Single day goal: appears on targetDate
     const targetDate = habit.scheduledDate || habit.startDate || todayIso;
-    return isoDate === targetDate && isoDate <= todayIso;
+    return isoDate === targetDate;
   }
 
   if (scheduleType === "schedule") {
-    // Schedule: The goal should appear only on the specific scheduled date or dates selected by the user.
-    // Do not automatically display the goal on additional future dates that were not selected.
+    // Scheduled goal: appears on specific scheduled date
     const targetDate = habit.scheduledDate || habit.startDate;
     return isoDate === targetDate;
   }
 
-  // Daily: The goal should appear every day of the month, including today and all subsequent days in the current month.
-  // It should follow the calendar dates correctly.
-  const start = habit.startDate || todayIso;
-  return !habit.startDate || isoDate >= start;
+  // Daily: Active from its startDate onward into all future weeks!
+  // Does NOT clutter past weeks before it was started.
+  // If no startDate is set (e.g. initial demo habits), it is active across all dates.
+  if (!habit.startDate) {
+    return true;
+  }
+
+  return isoDate >= habit.startDate;
 }
 
 interface HabitsContextType {
@@ -110,10 +118,12 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const [reminderTime, setReminderTimeState] = useState("20:00");
 
   const [weekDays, setWeekDays] = useState<DayInfo[]>(() => getFallbackWeekDays());
-  const todayObj = weekDays.find((d) => d.isToday) || weekDays[4];
-  const todayIso = todayObj.iso;
+  // todayIso must always be the real current date, independent of which week is being viewed
+  const [realTodayIso, setRealTodayIso] = useState(() => getTodayIso());
+  const todayIso = realTodayIso;
   const tomorrowIso = getTomorrowIsoFrom(todayIso);
-  const [selectedDayIso, setSelectedDayIso] = useState(todayObj.iso);
+  const todayObj = weekDays.find((d) => d.isToday) || weekDays[0];
+  const [selectedDayIso, setSelectedDayIso] = useState(todayIso);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "manage">("dashboard");
   const [weekOffset, setWeekOffset] = useState(0);
@@ -155,7 +165,9 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
 
     const actualDays = getCurrentWeekDays(initialWeekStart);
     setWeekDays(actualDays);
-    const today = actualDays.find((d) => d.isToday) || actualDays[4];
+    const realToday = getClientTodayIso();
+    setRealTodayIso(realToday);
+    const today = actualDays.find((d) => d.isToday) || actualDays[0];
     setSelectedDayIso(today.iso);
 
     let loadedHabits: Habit[] | null = null;
@@ -262,10 +274,12 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
 
   const calculateHabitStreak = useCallback(
     (habit: Habit): number => {
+      // Always compute streak relative to the real current week, independent of navigated view
+      const currentDays = getCurrentWeekDays(weekStartDay);
       let currentWeekComplete = 0;
-      weekDays.forEach((d) => {
-        // Only count days where the habit was active
-        if (checkIsHabitActive(habit, d.iso)) {
+      currentDays.forEach((d) => {
+        // Count completions up to today
+        if (d.iso <= todayIso && checkIsHabitActive(habit, d.iso)) {
           const val = getLogValue(habit, d.iso);
           const isDayFrozen = freezeUntil ? d.iso <= freezeUntil && d.iso >= todayIso : false;
           if (val >= habit.target || isDayFrozen) currentWeekComplete++;
@@ -273,7 +287,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       });
       return (habit.streak || 0) + currentWeekComplete;
     },
-    [weekDays, checkIsHabitActive, getLogValue, freezeUntil, todayIso]
+    [weekStartDay, checkIsHabitActive, getLogValue, freezeUntil, todayIso]
   );
 
   const upsertLog = useCallback(
@@ -378,17 +392,18 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const createHabit = useCallback(
     async (data: HabitFormData) => {
       const scheduleType: GoalScheduleType = data.scheduleType || "daily";
+      const defaultDate = selectedDayIso || todayIso;
       let scheduledDate = data.scheduledDate;
       let startDate = data.startDate;
 
       if (scheduleType === "today") {
-        startDate = todayIso;
-        scheduledDate = todayIso;
+        startDate = scheduledDate || defaultDate;
+        scheduledDate = startDate;
       } else if (scheduleType === "daily") {
-        startDate = data.startDate || todayIso;
+        startDate = data.startDate || defaultDate;
         scheduledDate = undefined;
       } else if (scheduleType === "schedule") {
-        scheduledDate = data.scheduledDate || tomorrowIso;
+        scheduledDate = data.scheduledDate || defaultDate;
         startDate = scheduledDate;
       }
 
@@ -722,7 +737,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     const demoHabits = createDefaultDemoHabits(actualDays);
     saveLocalHabits(demoHabits);
     setHabits(demoHabits);
-    const today = actualDays.find((d) => d.isToday) || actualDays[4];
+    const today = actualDays.find((d) => d.isToday) || actualDays[0];
     setSelectedDayIso(today.iso);
     showToast("Demo Data Restored");
     setLoading(false);

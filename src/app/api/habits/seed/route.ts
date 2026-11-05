@@ -1,21 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { formatLocalIso } from "@/lib/dates";
 
 // POST /api/habits/seed — seed demo habits for the current week
 export async function POST() {
   try {
-    // Get current week Monday-Sunday
+    // Get current week Monday-Sunday using local timezone formatting
     const now = new Date();
     const dayOfWeek = now.getDay();
     const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + diffToMonday);
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday, 12, 0, 0);
 
     const weekDates: string[] = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      weekDates.push(d.toISOString().split("T")[0]);
+      const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i, 12, 0, 0);
+      weekDates.push(formatLocalIso(d));
     }
 
     // Clear existing data
