@@ -1,7 +1,96 @@
 "use client";
 
+import { useState } from "react";
 import { useHabits } from "./HabitsProvider";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Habit } from "@/lib/types";
+import { ChevronLeft, ChevronRight, Zap, Plus, Minus } from "lucide-react";
+
+function ManualStreakRow({
+  habit,
+  totalStreak,
+  loggedDays,
+  onAdjust,
+  onSetManual,
+}: {
+  habit: Habit;
+  totalStreak: number;
+  loggedDays: number;
+  onAdjust: (delta: number) => void;
+  onSetManual: (manualDays: number) => void;
+}) {
+  const manualDays = Math.max(0, habit.streak || 0);
+  const [editingDraft, setEditingDraft] = useState<string | null>(null);
+  const inputValue = editingDraft !== null ? editingDraft : String(manualDays);
+
+  const commitDraft = () => {
+    if (editingDraft === null) return;
+    const parsed = Math.max(0, parseInt(editingDraft, 10) || 0);
+    setEditingDraft(null);
+    if (parsed !== manualDays) {
+      onSetManual(parsed);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-2.5 py-2 border-b border-zinc-200/70 dark:border-zinc-800/60 last:border-none">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span
+          className="w-2.5 h-2.5 rounded-full shrink-0"
+          style={{ backgroundColor: habit.color }}
+        />
+        <div className="min-w-0">
+          <p className="text-xs font-bold truncate text-zinc-900 dark:text-white">
+            {habit.name}
+          </p>
+          <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">
+            <span className="text-[#FF4F00] font-bold">{totalStreak}d total</span>
+            {" • "}
+            {loggedDays} logged + {manualDays} manual
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={() => onAdjust(-1)}
+          disabled={manualDays <= 0}
+          aria-label={`Decrease manual streak for ${habit.name}`}
+          title="Remove 1 manual streak day"
+          className="w-7 h-7 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all"
+        >
+          <Minus className="w-3 h-3" />
+        </button>
+        <input
+          type="number"
+          min="0"
+          max="9999"
+          value={inputValue}
+          onFocus={() => setEditingDraft(String(manualDays))}
+          onChange={(e) => setEditingDraft(e.target.value)}
+          onBlur={commitDraft}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.currentTarget.blur();
+            }
+          }}
+          aria-label={`Manual streak days for ${habit.name}`}
+          title="Manual streak days (added without completing tasks)"
+          className="w-12 h-7 text-center rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-[#FF4F00]"
+        />
+        <button
+          type="button"
+          onClick={() => onAdjust(1)}
+          aria-label={`Add manual streak day for ${habit.name}`}
+          title="Add 1 streak day manually (without completing task)"
+          className="w-7 h-7 rounded-lg bg-[#FF4F00] hover:bg-[#e04500] text-white flex items-center justify-center shadow-xs active:scale-95 transition-all"
+        >
+          <Plus className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AnalyticsView() {
   const {
@@ -10,6 +99,9 @@ export default function AnalyticsView() {
     getDayCompletedCount,
     getLogValue,
     calculateHabitStreak,
+    getCompletedLogDaysCount,
+    adjustHabitStreak,
+    setManualStreak,
     toggleMatrixCell,
     isHabitActiveOnDate,
     goToPreviousWeek,
@@ -57,6 +149,43 @@ export default function AnalyticsView() {
           <span className="text-lg sm:text-2xl font-extrabold font-mono mt-0.5 sm:mt-1 block text-zinc-900 dark:text-zinc-50">{perfectDays}/7</span>
           <span className="text-[9px] sm:text-[10px] font-mono text-zinc-500 block truncate">Days 100%</span>
         </div>
+      </div>
+
+      {/* Manual Streak Control (Add/Edit without completing tasks) */}
+      <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 sm:p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-2.5">
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-tight text-zinc-900 dark:text-white flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+              <span>Manual Streak Control</span>
+            </h3>
+            <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+              Add or edit streak days without completing tasks
+            </p>
+          </div>
+          <span className="text-[9.5px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-[#FF4F00]/10 text-[#FF4F00] border border-[#FF4F00]/20">
+            Persistent
+          </span>
+        </div>
+
+        {habits.length === 0 ? (
+          <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 py-3 text-center">
+            Create a goal first to track or add manual streaks.
+          </p>
+        ) : (
+          <div>
+            {habits.map((h) => (
+              <ManualStreakRow
+                key={h.id}
+                habit={h}
+                totalStreak={calculateHabitStreak(h)}
+                loggedDays={getCompletedLogDaysCount(h)}
+                onAdjust={(delta) => adjustHabitStreak(h.id, delta)}
+                onSetManual={(days) => setManualStreak(h.id, days)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 7-Day Habit Matrix */}

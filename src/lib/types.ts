@@ -31,6 +31,7 @@ export interface HabitFormData {
   color: string;
   target: number;
   unit: string;
+  streak?: number;
   timerMinutes?: number;
   startDate?: string;
   scheduleType?: GoalScheduleType;

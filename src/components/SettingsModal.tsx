@@ -23,6 +23,8 @@ import {
   EyeOff,
   Copy,
   Smartphone,
+  Cloud,
+  RefreshCw,
 } from "lucide-react";
 import { getSavedPin, setSavedPin } from "./PinLock";
 import {
@@ -84,6 +86,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     exportBackupData,
     importBackup,
     todayIso,
+    workspaceId,
+    syncStatus,
+    connectWorkspaceKey,
+    syncWithSupabase,
   } = useHabits();
 
   const [nameInput, setNameInput] = useState(userName);
@@ -110,6 +116,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // Desktop ⇄ Mobile Quick Sync state (must be at top level before any early return)
   const [syncCodeInput, setSyncCodeInput] = useState("");
   const [showSyncInput, setShowSyncInput] = useState(false);
+  const [workspaceInput, setWorkspaceInput] = useState<string | null>(null);
+  const workspaceFieldValue = workspaceInput !== null ? workspaceInput : workspaceId;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -762,6 +770,80 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 onChange={handleFileSelect}
                 className="hidden"
               />
+            </div>
+
+            {/* Supabase Cloud Sync */}
+            <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono font-bold uppercase text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <Cloud className="w-3.5 h-3.5 text-[#FF4F00]" />
+                  <span>Supabase Cloud Sync</span>
+                </span>
+                <span
+                  className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                    syncStatus === "synced"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : syncStatus === "syncing"
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      : "bg-zinc-200/70 dark:bg-zinc-800 text-zinc-500"
+                  }`}
+                >
+                  {syncStatus === "synced"
+                    ? "● Connected"
+                    : syncStatus === "syncing"
+                    ? "Syncing..."
+                    : "Offline Fallback"}
+                </span>
+              </div>
+              <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Your habits &amp; streaks sync automatically to Supabase Postgres. Use the same Cloud Sync Key on another device to share live data.
+              </p>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={workspaceFieldValue}
+                  onFocus={() => setWorkspaceInput(workspaceId)}
+                  onChange={(e) => setWorkspaceInput(e.target.value)}
+                  placeholder="Enter Cloud Sync Key (min 6 chars)"
+                  className="min-w-0 flex-1 px-2.5 py-2 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-[11px] font-mono font-semibold text-zinc-900 dark:text-white focus:outline-none focus:border-[#FF4F00]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+                      navigator.clipboard.writeText(workspaceFieldValue).catch(() => {});
+                    }
+                    showToast("Cloud Sync Key Copied!");
+                  }}
+                  title="Copy Cloud Sync Key"
+                  className="shrink-0 p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-[#FF4F00] text-zinc-700 dark:text-zinc-300 transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5 text-[#FF4F00]" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const target = workspaceFieldValue.trim();
+                    setWorkspaceInput(null);
+                    await connectWorkspaceKey(target);
+                  }}
+                  disabled={workspaceFieldValue.trim().length < 6}
+                  className="py-2 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-[#FF4F00] text-zinc-800 dark:text-zinc-200 text-xs font-mono font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-40"
+                >
+                  <Check className="w-3.5 h-3.5 text-[#FF4F00]" />
+                  <span>Connect Key</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => syncWithSupabase()}
+                  className="py-2 px-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-mono font-bold flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-95 transition-all"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
+                  <span>Sync Now</span>
+                </button>
+              </div>
             </div>
 
             {/* Desktop & Mobile Quick Sync */}

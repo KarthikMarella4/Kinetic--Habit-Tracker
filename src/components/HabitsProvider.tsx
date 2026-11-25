@@ -40,6 +40,32 @@ export function isHabitActiveOnDate(
   return isoDate >= habit.startDate;
 }
 
+export function getCompletedLogDates(habit: Habit, todayIso: string): Set<string> {
+  const completedDates = new Set<string>();
+  (habit.logs || []).forEach((log) => {
+    if (log.date <= todayIso && log.value >= habit.target) {
+      completedDates.add(log.date);
+    }
+  });
+  return completedDates;
+}
+
+export function computeHabitStreak(
+  habit: Habit,
+  todayIso: string,
+  freezeUntil: string | null
+): number {
+  const completedDates = getCompletedLogDates(habit, todayIso);
+  if (
+    freezeUntil &&
+    todayIso <= freezeUntil &&
+    isHabitActiveOnDate(habit, todayIso, todayIso)
+  ) {
+    completedDates.add(todayIso);
+  }
+  return Math.max(0, habit.streak || 0) + completedDates.size;
+}
+
 interface HabitsContextType {
   habits: Habit[];
   weekDays: DayInfo[];
@@ -60,6 +86,9 @@ interface HabitsContextType {
   incrementHabit: (habitId: string) => Promise<void>;
   decrementHabit: (habitId: string) => Promise<void>;
   toggleMatrixCell: (habitId: string, isoDate: string) => Promise<void>;
+  adjustHabitStreak: (habitId: string, delta: number) => Promise<void>;
+  setManualStreak: (habitId: string, manualDays: number) => Promise<void>;
+  getCompletedLogDaysCount: (habit: Habit) => number;
   seedDemo: () => Promise<void>;
   getLogValue: (habit: Habit, isoDate: string) => number;
   getDayCompletionPercent: (isoDate: string) => number;
@@ -89,17 +118,26 @@ interface HabitsContextType {
   sendTestNotification: () => void;
   exportBackupData: () => any;
   importBackup: (data: any) => Promise<void>;
+  workspaceId: string;
+  syncStatus: "synced" | "syncing" | "offline";
+  connectWorkspaceKey: (newKey: string) => Promise<void>;
+  syncWithSupabase: () => Promise<void>;
 }
 
 const HabitsContext = createContext<HabitsContextType | null>(null);
 
 const STORAGE_KEY = "kinetic_habits_v3";
 const FRESH_START_KEY = "kinetic_fresh_started";
+const WORKSPACE_ID_KEY = "kinetic_workspace_id";
 const USER_NAME_KEY = "kinetic_user_name";
 const WEEK_START_KEY = "kinetic_week_start_day";
 const FREEZE_UNTIL_KEY = "kinetic_freeze_until";
 const REMINDER_ENABLED_KEY = "kinetic_reminder_enabled";
 const REMINDER_TIME_KEY = "kinetic_reminder_time";
+
+function generateWorkspaceId(): string {
+  return `kw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export function useHabits() {
   const ctx = useContext(HabitsContext);
@@ -111,6 +149,8 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const [workspaceId, setWorkspaceIdState] = useState("kinetic_default");
+  const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "offline">("syncing");
   const [userName, setUserNameState] = useState("Karthik Marella");
   const [weekStartDay, setWeekStartDayState] = useState<WeekStartDay>("monday");
   const [freezeUntil, setFreezeUntilState] = useState<string | null>(null);
@@ -143,7 +183,16 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   // Initialize habits on client mount
   useEffect(() => {
     let initialWeekStart: WeekStartDay = "monday";
+    let activeWorkspaceId = "kinetic_default";
     try {
+      let savedWs = localStorage.getItem(WORKSPACE_ID_KEY);
+      if (!savedWs || savedWs.trim().length < 6) {
+        savedWs = generateWorkspaceId();
+        localStorage.setItem(WORKSPACE_ID_KEY, savedWs);
+      }
+      activeWorkspaceId = savedWs.trim();
+      setWorkspaceIdState(activeWorkspaceId);
+
       const savedName = localStorage.getItem(USER_NAME_KEY);
       if (savedName) setUserNameState(savedName);
 
@@ -189,39 +238,89 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       }
     })();
 
-    if (loadedHabits !== null) {
-      setHabits(loadedHabits);
-      setLoading(false);
-    } else if (isFreshStarted) {
-      setHabits([]);
-      saveLocalHabits([]);
-      setLoading(false);
-    } else {
-      // First visit: Seed demo habits automatically so the user immediately sees working data
-      const defaultDemo = createDefaultDemoHabits(actualDays);
-      setHabits(defaultDemo);
-      saveLocalHabits(defaultDemo);
-      setLoading(false);
-    }
+    const initialLocalHabits =
+      loadedHabits !== null
+        ? loadedHabits
+        : isFreshStarted
+        ? []
+        : createDefaultDemoHabits(actualDays);
 
-    // Optional background sync with SQLite API only if local storage was empty
+    setHabits(initialLocalHabits);
+    saveLocalHabits(initialLocalHabits);
+    setLoading(false);
+
+    // Sync with Supabase via API (pull remote if available, or push initial local habits up)
     (async () => {
       try {
-        if (loadedHabits === null && !isFreshStarted) {
-          const res = await fetch(`/api/habits?start=${actualDays[0].iso}&end=${actualDays[6].iso}`);
-          if (res.ok) {
-            const apiData = await res.json();
-            if (Array.isArray(apiData) && apiData.length > 0) {
-              setHabits(apiData);
-              saveLocalHabits(apiData);
-            }
+        setSyncStatus("syncing");
+        const res = await fetch("/api/habits", {
+          headers: { "x-workspace-id": activeWorkspaceId },
+        });
+        if (!res.ok) {
+          setSyncStatus("offline");
+          return;
+        }
+        const apiData = await res.json();
+        if (Array.isArray(apiData) && apiData.length > 0) {
+          if (loadedHabits === null && !isFreshStarted) {
+            setHabits(apiData);
+            saveLocalHabits(apiData);
+          } else if (loadedHabits !== null && loadedHabits.length === 0 && !isFreshStarted) {
+            setHabits(apiData);
+            saveLocalHabits(apiData);
           }
+          setSyncStatus("synced");
+        } else if (initialLocalHabits.length > 0 && !isFreshStarted) {
+          const syncRes = await fetch("/api/habits/sync", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-workspace-id": activeWorkspaceId,
+            },
+            body: JSON.stringify({ habits: initialLocalHabits }),
+          });
+          setSyncStatus(syncRes.ok ? "synced" : "offline");
+        } else {
+          setSyncStatus("synced");
         }
       } catch (_) {
-        // Netlify serverless / offline fallback: local storage already active
+        setSyncStatus("offline");
       }
     })();
   }, [saveLocalHabits]);
+
+  // Keep realTodayIso (and current week strip) fresh across midnight or tab resume
+  useEffect(() => {
+    const syncDateIfRolledOver = () => {
+      const latestToday = getClientTodayIso();
+      if (latestToday !== realTodayIso) {
+        setRealTodayIso(latestToday);
+        if (weekOffset === 0) {
+          const actualDays = getCurrentWeekDays(weekStartDay);
+          setWeekDays(actualDays);
+          if (selectedDayIso === realTodayIso) {
+            setSelectedDayIso(latestToday);
+          }
+        }
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        syncDateIfRolledOver();
+      }
+    };
+
+    const interval = setInterval(syncDateIfRolledOver, 60000);
+    window.addEventListener("focus", syncDateIfRolledOver);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", syncDateIfRolledOver);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [realTodayIso, weekOffset, weekStartDay, selectedDayIso]);
 
   const setUserName = useCallback((name: string) => {
     const trimmed = name.trim() || "Karthik Marella";
@@ -272,35 +371,37 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
 
   const isFreezeActive = Boolean(freezeUntil && todayIso <= freezeUntil);
 
+  const getCompletedLogDaysCount = useCallback(
+    (habit: Habit): number => {
+      return getCompletedLogDates(habit, todayIso).size;
+    },
+    [todayIso]
+  );
+
   const calculateHabitStreak = useCallback(
     (habit: Habit): number => {
-      // Always compute streak relative to the real current week, independent of navigated view
-      const currentDays = getCurrentWeekDays(weekStartDay);
-      let currentWeekComplete = 0;
-      currentDays.forEach((d) => {
-        // Count completions up to today
-        if (d.iso <= todayIso && checkIsHabitActive(habit, d.iso)) {
-          const val = getLogValue(habit, d.iso);
-          const isDayFrozen = freezeUntil ? d.iso <= freezeUntil && d.iso >= todayIso : false;
-          if (val >= habit.target || isDayFrozen) currentWeekComplete++;
-        }
-      });
-      return (habit.streak || 0) + currentWeekComplete;
+      return computeHabitStreak(habit, todayIso, freezeUntil);
     },
-    [weekStartDay, checkIsHabitActive, getLogValue, freezeUntil, todayIso]
+    [freezeUntil, todayIso]
   );
 
   const upsertLog = useCallback(
     async (habitId: string, date: string, value: number) => {
       try {
-        await fetch("/api/habits/log", {
+        const res = await fetch("/api/habits/log", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-workspace-id": workspaceId,
+          },
           body: JSON.stringify({ habitId, date, value }),
         });
-      } catch (_) {}
+        setSyncStatus(res.ok ? "synced" : "offline");
+      } catch (_) {
+        setSyncStatus("offline");
+      }
     },
-    []
+    [workspaceId]
   );
 
   const incrementHabit = useCallback(
@@ -407,6 +508,8 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         startDate = scheduledDate;
       }
 
+      const manualStreak = Math.max(0, Math.floor(Number(data.streak) || 0));
+
       const newHabit: Habit = {
         id: `habit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         name: data.name,
@@ -414,7 +517,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         color: data.color,
         target: data.target,
         unit: data.unit || "session",
-        streak: 0,
+        streak: manualStreak,
         order: habits.length,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -433,29 +536,48 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
 
       showToast("New Goal Added");
 
-      // Background server sync if available
+      // Background server sync with Supabase
       try {
-        await fetch("/api/habits", {
+        const res = await fetch("/api/habits", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-workspace-id": workspaceId,
+          },
           body: JSON.stringify({
+            id: newHabit.id,
             name: data.name,
             category: data.category,
             color: data.color,
             target: data.target,
             unit: data.unit,
+            streak: manualStreak,
+            timerMinutes: data.timerMinutes,
+            startDate,
+            scheduleType,
+            scheduledDate,
           }),
         });
-      } catch (_) {}
+        setSyncStatus(res.ok ? "synced" : "offline");
+      } catch (_) {
+        setSyncStatus("offline");
+      }
     },
-    [habits.length, todayIso, tomorrowIso, saveLocalHabits, showToast]
+    [habits.length, selectedDayIso, todayIso, workspaceId, saveLocalHabits, showToast]
   );
 
   const updateHabit = useCallback(
     async (id: string, data: Partial<HabitFormData>) => {
+      const sanitizedData: Partial<HabitFormData> = {
+        ...data,
+        ...(data.streak !== undefined && {
+          streak: Math.max(0, Math.floor(Number(data.streak) || 0)),
+        }),
+      };
+
       setHabits((prev) => {
         const next = prev.map((h) =>
-          h.id === id ? { ...h, ...data, updatedAt: new Date().toISOString() } : h
+          h.id === id ? { ...h, ...sanitizedData, updatedAt: new Date().toISOString() } : h
         );
         saveLocalHabits(next);
         return next;
@@ -464,14 +586,85 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       showToast("Goal Updated");
 
       try {
-        await fetch(`/api/habits/${id}`, {
+        const res = await fetch(`/api/habits/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          headers: {
+            "Content-Type": "application/json",
+            "x-workspace-id": workspaceId,
+          },
+          body: JSON.stringify(sanitizedData),
         });
-      } catch (_) {}
+        setSyncStatus(res.ok ? "synced" : "offline");
+      } catch (_) {
+        setSyncStatus("offline");
+      }
     },
-    [saveLocalHabits, showToast]
+    [workspaceId, saveLocalHabits, showToast]
+  );
+
+  const setManualStreak = useCallback(
+    async (habitId: string, manualDays: number) => {
+      const nextStreak = Math.max(0, Math.floor(Number(manualDays) || 0));
+      setHabits((prev) => {
+        const next = prev.map((h) =>
+          h.id === habitId ? { ...h, streak: nextStreak, updatedAt: new Date().toISOString() } : h
+        );
+        saveLocalHabits(next);
+        return next;
+      });
+
+      showToast(`Manual Streak: ${nextStreak}d 🔥`);
+
+      try {
+        const res = await fetch(`/api/habits/${habitId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "x-workspace-id": workspaceId,
+          },
+          body: JSON.stringify({ streak: nextStreak }),
+        });
+        setSyncStatus(res.ok ? "synced" : "offline");
+      } catch (_) {
+        setSyncStatus("offline");
+      }
+    },
+    [workspaceId, saveLocalHabits, showToast]
+  );
+
+  const adjustHabitStreak = useCallback(
+    async (habitId: string, delta: number) => {
+      const targetHabit = habits.find((h) => h.id === habitId);
+      if (!targetHabit) return;
+      const currentManual = Math.max(0, targetHabit.streak || 0);
+      const nextStreak = Math.max(0, currentManual + delta);
+      if (nextStreak === currentManual) return;
+
+      setHabits((prev) => {
+        const next = prev.map((h) =>
+          h.id === habitId ? { ...h, streak: nextStreak, updatedAt: new Date().toISOString() } : h
+        );
+        saveLocalHabits(next);
+        return next;
+      });
+
+      showToast(delta > 0 ? `+${delta} Streak Added 🔥` : "Manual Streak Updated");
+
+      try {
+        const res = await fetch(`/api/habits/${habitId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "x-workspace-id": workspaceId,
+          },
+          body: JSON.stringify({ streak: nextStreak }),
+        });
+        setSyncStatus(res.ok ? "synced" : "offline");
+      } catch (_) {
+        setSyncStatus("offline");
+      }
+    },
+    [habits, workspaceId, saveLocalHabits, showToast]
   );
 
   const deleteHabit = useCallback(
@@ -485,14 +678,40 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       showToast("Habit Removed");
 
       try {
-        await fetch(`/api/habits/${id}`, { method: "DELETE" });
-      } catch (_) {}
+        const res = await fetch(`/api/habits/${id}`, {
+          method: "DELETE",
+          headers: { "x-workspace-id": workspaceId },
+        });
+        setSyncStatus(res.ok ? "synced" : "offline");
+      } catch (_) {
+        setSyncStatus("offline");
+      }
     },
-    [saveLocalHabits, showToast]
+    [workspaceId, saveLocalHabits, showToast]
+  );
+
+  const syncOrderToCloud = useCallback(
+    async (ordered: Habit[]) => {
+      try {
+        const res = await fetch("/api/habits/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-workspace-id": workspaceId,
+          },
+          body: JSON.stringify({ habits: ordered }),
+        });
+        setSyncStatus(res.ok ? "synced" : "offline");
+      } catch (_) {
+        setSyncStatus("offline");
+      }
+    },
+    [workspaceId]
   );
 
   const moveHabitUp = useCallback(
     (habitId: string) => {
+      let updatedOrder: Habit[] | null = null;
       setHabits((prev) => {
         const index = prev.findIndex((h) => h.id === habitId);
         if (index <= 0) return prev;
@@ -500,16 +719,19 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         const temp = next[index - 1];
         next[index - 1] = next[index];
         next[index] = temp;
-        saveLocalHabits(next);
-        return next;
+        updatedOrder = next.map((h, i) => ({ ...h, order: i }));
+        saveLocalHabits(updatedOrder);
+        return updatedOrder;
       });
+      if (updatedOrder) void syncOrderToCloud(updatedOrder);
       showToast("Priority Moved Up");
     },
-    [saveLocalHabits, showToast]
+    [saveLocalHabits, syncOrderToCloud, showToast]
   );
 
   const moveHabitDown = useCallback(
     (habitId: string) => {
+      let updatedOrder: Habit[] | null = null;
       setHabits((prev) => {
         const index = prev.findIndex((h) => h.id === habitId);
         if (index === -1 || index >= prev.length - 1) return prev;
@@ -517,26 +739,36 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         const temp = next[index + 1];
         next[index + 1] = next[index];
         next[index] = temp;
-        saveLocalHabits(next);
-        return next;
+        updatedOrder = next.map((h, i) => ({ ...h, order: i }));
+        saveLocalHabits(updatedOrder);
+        return updatedOrder;
       });
+      if (updatedOrder) void syncOrderToCloud(updatedOrder);
       showToast("Priority Moved Down");
     },
-    [saveLocalHabits, showToast]
+    [saveLocalHabits, syncOrderToCloud, showToast]
   );
 
   const fetchHabits = useCallback(async () => {
     try {
-      const res = await fetch(`/api/habits?start=${weekDays[0].iso}&end=${weekDays[6].iso}`);
+      setSyncStatus("syncing");
+      const res = await fetch("/api/habits", {
+        headers: { "x-workspace-id": workspaceId },
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           setHabits(data);
           saveLocalHabits(data);
         }
+        setSyncStatus("synced");
+      } else {
+        setSyncStatus("offline");
       }
-    } catch (_) {}
-  }, [weekDays, saveLocalHabits]);
+    } catch (_) {
+      setSyncStatus("offline");
+    }
+  }, [workspaceId, saveLocalHabits]);
 
   const changeWeek = useCallback(
     (offset: number) => {
@@ -675,24 +907,135 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [reminderEnabled, reminderTime, todayIso, habits, checkIsHabitActive, getLogValue, calculateHabitStreak, userName]);
 
+  const syncWithSupabase = useCallback(async () => {
+    try {
+      setSyncStatus("syncing");
+      const res = await fetch("/api/habits", {
+        headers: { "x-workspace-id": workspaceId },
+      });
+      if (!res.ok) {
+        setSyncStatus("offline");
+        showToast("Supabase sync failed");
+        return;
+      }
+      const remoteHabits = await res.json();
+      if (Array.isArray(remoteHabits) && remoteHabits.length > 0) {
+        setHabits(remoteHabits);
+        saveLocalHabits(remoteHabits);
+        setSyncStatus("synced");
+        showToast("Synced from Supabase ☁️");
+      } else if (habits.length > 0) {
+        const pushRes = await fetch("/api/habits/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-workspace-id": workspaceId,
+          },
+          body: JSON.stringify({ habits }),
+        });
+        setSyncStatus(pushRes.ok ? "synced" : "offline");
+        showToast(pushRes.ok ? "Uploaded Habits to Supabase ☁️" : "Supabase sync failed");
+      } else {
+        setSyncStatus("synced");
+        showToast("Supabase Connected ☁️");
+      }
+    } catch (_) {
+      setSyncStatus("offline");
+      showToast("Offline mode • Saved locally");
+    }
+  }, [workspaceId, habits, saveLocalHabits, showToast]);
+
+  const connectWorkspaceKey = useCallback(
+    async (newKey: string) => {
+      const trimmed = newKey.trim();
+      if (trimmed.length < 6) {
+        showToast("Cloud Sync Key must be at least 6 characters");
+        return;
+      }
+      setWorkspaceIdState(trimmed);
+      try {
+        localStorage.setItem(WORKSPACE_ID_KEY, trimmed);
+      } catch (_) {}
+
+      try {
+        setSyncStatus("syncing");
+        const res = await fetch("/api/habits", {
+          headers: { "x-workspace-id": trimmed },
+        });
+        if (!res.ok) {
+          setSyncStatus("offline");
+          showToast("Saved Sync Key (Offline)");
+          return;
+        }
+        const remoteHabits = await res.json();
+        if (Array.isArray(remoteHabits) && remoteHabits.length > 0) {
+          try {
+            localStorage.removeItem(FRESH_START_KEY);
+          } catch (_) {}
+          setHabits(remoteHabits);
+          saveLocalHabits(remoteHabits);
+          setSyncStatus("synced");
+          showToast("Connected & Loaded from Supabase ☁️");
+        } else if (habits.length > 0) {
+          const pushRes = await fetch("/api/habits/sync", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-workspace-id": trimmed,
+            },
+            body: JSON.stringify({ habits }),
+          });
+          setSyncStatus(pushRes.ok ? "synced" : "offline");
+          showToast(pushRes.ok ? "Connected & Pushed to Supabase ☁️" : "Sync Key Updated");
+        } else {
+          setSyncStatus("synced");
+          showToast("Cloud Sync Key Connected ☁️");
+        }
+      } catch (_) {
+        setSyncStatus("offline");
+        showToast("Sync Key Saved Locally");
+      }
+    },
+    [habits, saveLocalHabits, showToast]
+  );
+
   const exportBackupData = useCallback(() => {
     return {
       app: "Kinetic Habit Tracker",
       version: "1.2",
       exportedAt: new Date().toISOString(),
+      workspaceId,
       userName,
       weekStartDay,
       freezeUntil,
       habits,
     };
-  }, [userName, weekStartDay, freezeUntil, habits]);
+  }, [workspaceId, userName, weekStartDay, freezeUntil, habits]);
 
   const importBackup = useCallback(async (data: any) => {
     if (!data || !Array.isArray(data.habits)) {
       throw new Error("Invalid backup format");
     }
-    setHabits(data.habits);
-    saveLocalHabits(data.habits);
+    const sanitizedHabits: Habit[] = data.habits.map((h: Habit) => ({
+      ...h,
+      streak: Math.max(0, Math.floor(Number(h.streak) || 0)),
+      logs: Array.isArray(h.logs) ? h.logs : [],
+    }));
+    const targetWs =
+      typeof data.workspaceId === "string" && data.workspaceId.trim().length >= 6
+        ? data.workspaceId.trim()
+        : workspaceId;
+    if (targetWs !== workspaceId) {
+      setWorkspaceIdState(targetWs);
+      try {
+        localStorage.setItem(WORKSPACE_ID_KEY, targetWs);
+      } catch (_) {}
+    }
+    try {
+      localStorage.removeItem(FRESH_START_KEY);
+    } catch (_) {}
+    setHabits(sanitizedHabits);
+    saveLocalHabits(sanitizedHabits);
     if (data.userName) {
       setUserNameState(data.userName);
       try {
@@ -708,8 +1051,21 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(FREEZE_UNTIL_KEY, data.freezeUntil);
       } catch (_) {}
     }
+    try {
+      const res = await fetch("/api/habits/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-workspace-id": targetWs,
+        },
+        body: JSON.stringify({ habits: sanitizedHabits, replace: true }),
+      });
+      setSyncStatus(res.ok ? "synced" : "offline");
+    } catch (_) {
+      setSyncStatus("offline");
+    }
     showToast("Backup Data Restored Successfully!");
-  }, [saveLocalHabits, setWeekStartDay, showToast]);
+  }, [workspaceId, saveLocalHabits, setWeekStartDay, showToast]);
 
   const goToPreviousWeek = useCallback(() => {
     changeWeek(weekOffset - 1);
@@ -743,9 +1099,22 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     setLoading(false);
 
     try {
-      await fetch("/api/habits/seed", { method: "POST" });
-    } catch (_) {}
-  }, [saveLocalHabits, showToast]);
+      const res = await fetch("/api/habits/seed", {
+        method: "POST",
+        headers: { "x-workspace-id": workspaceId },
+      });
+      if (res.ok) {
+        const seeded = await res.json();
+        if (Array.isArray(seeded?.habits) && seeded.habits.length > 0) {
+          setHabits(seeded.habits);
+          saveLocalHabits(seeded.habits);
+        }
+        setSyncStatus("synced");
+      }
+    } catch (_) {
+      setSyncStatus("offline");
+    }
+  }, [workspaceId, saveLocalHabits, showToast]);
 
   const clearAllData = useCallback(async () => {
     setLoading(true);
@@ -758,9 +1127,15 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     setLoading(false);
 
     try {
-      await fetch("/api/habits/seed", { method: "DELETE" });
-    } catch (_) {}
-  }, [saveLocalHabits, showToast]);
+      const res = await fetch("/api/habits/seed", {
+        method: "DELETE",
+        headers: { "x-workspace-id": workspaceId },
+      });
+      setSyncStatus(res.ok ? "synced" : "offline");
+    } catch (_) {
+      setSyncStatus("offline");
+    }
+  }, [workspaceId, saveLocalHabits, showToast]);
 
   return (
     <HabitsContext.Provider
@@ -784,6 +1159,9 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         incrementHabit,
         decrementHabit,
         toggleMatrixCell,
+        adjustHabitStreak,
+        setManualStreak,
+        getCompletedLogDaysCount,
         seedDemo,
         clearAllData,
         userName,
@@ -813,6 +1191,10 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         sendTestNotification,
         exportBackupData,
         importBackup,
+        workspaceId,
+        syncStatus,
+        connectWorkspaceKey,
+        syncWithSupabase,
       }}
     >
       {children}

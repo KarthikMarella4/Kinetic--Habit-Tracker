@@ -1,130 +1,109 @@
-import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
-import { formatLocalIso } from "@/lib/dates";
+import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseClient, getRequestWorkspaceId } from "@/lib/supabase/client";
+import { createDefaultDemoHabits } from "@/lib/demoData";
+import { getCurrentWeekDays } from "@/lib/dates";
+import { DbHabitRow, mapDbHabitToHabit, mapHabitToDbRow } from "@/lib/supabase/mappers";
 
-// POST /api/habits/seed — seed demo habits for the current week
-export async function POST() {
-  try {
-    // Get current week Monday-Sunday using local timezone formatting
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday, 12, 0, 0);
-
-    const weekDates: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i, 12, 0, 0);
-      weekDates.push(formatLocalIso(d));
-    }
-
-    // Clear existing data
-    await prisma.habitLog.deleteMany();
-    await prisma.habit.deleteMany();
-
-    // Seed habits
-    const habitsData = [
-      {
-        name: "Deep Work: Core Architecture",
-        category: "Deep Work",
-        color: "#FF4F00",
-        target: 2,
-        unit: "blocks",
-        streak: 14,
-        order: 0,
-        dailyValues: [2, 2, 2, 2, 1, 0, 0],
-      },
-      {
-        name: "Strength & Mobility Session",
-        category: "Fitness",
-        color: "#10B981",
-        target: 1,
-        unit: "workout",
-        streak: 9,
-        order: 1,
-        dailyValues: [1, 1, 0, 1, 1, 1, 0],
-      },
-      {
-        name: "Hydration Protocol (3L)",
-        category: "Wellness",
-        color: "#2563EB",
-        target: 6,
-        unit: "500ml",
-        streak: 21,
-        order: 2,
-        dailyValues: [6, 6, 5, 6, 4, 3, 0],
-      },
-      {
-        name: "Read Technical Papers / Books",
-        category: "Learning",
-        color: "#7C3AED",
-        target: 20,
-        unit: "pages",
-        streak: 7,
-        order: 3,
-        dailyValues: [20, 15, 20, 20, 10, 0, 0],
-      },
-      {
-        name: "Zero-Screen Wind Down (10 PM)",
-        category: "Wellness",
-        color: "#F59E0B",
-        target: 1,
-        unit: "night",
-        streak: 5,
-        order: 4,
-        dailyValues: [1, 1, 1, 1, 0, 0, 0],
-      },
-    ];
-
-    for (const hData of habitsData) {
-      const habit = await prisma.habit.create({
-        data: {
-          name: hData.name,
-          category: hData.category,
-          color: hData.color,
-          target: hData.target,
-          unit: hData.unit,
-          streak: hData.streak,
-          order: hData.order,
-        },
-      });
-
-      // Create logs for each day of the week
-      const logEntries = weekDates.map((date, i) => ({
-        habitId: habit.id,
-        date,
-        value: hData.dailyValues[i],
-      }));
-
-      await prisma.habitLog.createMany({ data: logEntries });
-    }
-
-    const result = await prisma.habit.findMany({
-      include: { logs: true },
-      orderBy: { order: "asc" },
-    });
-
-    return NextResponse.json({ message: "Demo data seeded", habits: result });
-  } catch (error) {
-    console.error("Failed to seed data:", error);
+// POST /api/habits/seed — seed demo habits for the current workspace in Supabase
+export async function POST(request: NextRequest) {
+  const workspaceId = getRequestWorkspaceId(request.headers);
+  if (!workspaceId) {
     return NextResponse.json(
-      { error: "Failed to seed demo data" },
+      { error: "x-workspace-id header (min 6 chars) is required" },
+      { status: 400 }
+    );
+  }
+
+  const supabase = createSupabaseClient(workspaceId);
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase is not configured" },
       { status: 500 }
     );
   }
+
+  try {
+    await supabase.from("habit_logs").delete().eq("workspace_id", workspaceId);
+    await supabase.from("habits").delete().eq("workspace_id", workspaceId);
+
+    const weekDays = getCurrentWeekDays();
+    const demoHabits = createDefaultDemoHabits(weekDays).map((h) => ({
+      ...h,
+      id: `${workspaceId}_${h.id}`,
+      logs: h.logs.map((l) => ({
+        ...l,
+        id: `${workspaceId}_${l.id}`,
+        habitId: `${workspaceId}_${h.id}`,
+      })),
+    }));
+
+    const habitRows = demoHabits.map((h, idx) => mapHabitToDbRow(h, workspaceId, idx));
+    const { error: habitsErr } = await supabase.from("habits").insert(habitRows);
+    if (habitsErr) {
+      return NextResponse.json({ error: habitsErr.message }, { status: 500 });
+    }
+
+    const logRows = demoHabits.flatMap((h) =>
+      h.logs.map((l) => ({
+        id: l.id,
+        habit_id: h.id,
+        workspace_id: workspaceId,
+        date: l.date,
+        value: l.value,
+      }))
+    );
+
+    if (logRows.length > 0) {
+      const { error: logsErr } = await supabase.from("habit_logs").insert(logRows);
+      if (logsErr) {
+        return NextResponse.json({ error: logsErr.message }, { status: 500 });
+      }
+    }
+
+    const { data: result, error: fetchErr } = await supabase
+      .from("habits")
+      .select("*, habit_logs(*)")
+      .eq("workspace_id", workspaceId)
+      .order("sort_order", { ascending: true });
+
+    if (fetchErr) {
+      return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      message: "Demo data seeded",
+      habits: ((result as DbHabitRow[]) || []).map(mapDbHabitToHabit),
+    });
+  } catch (error) {
+    console.error("Failed to seed data:", error);
+    return NextResponse.json({ error: "Failed to seed demo data" }, { status: 500 });
+  }
 }
 
-// DELETE /api/habits/seed — wipe all habits and logs for a completely fresh start
-export async function DELETE() {
+// DELETE /api/habits/seed — wipe all habits and logs for this workspace in Supabase
+export async function DELETE(request: NextRequest) {
+  const workspaceId = getRequestWorkspaceId(request.headers);
+  if (!workspaceId) {
+    return NextResponse.json(
+      { error: "x-workspace-id header (min 6 chars) is required" },
+      { status: 400 }
+    );
+  }
+
+  const supabase = createSupabaseClient(workspaceId);
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase is not configured" },
+      { status: 500 }
+    );
+  }
+
   try {
-    await prisma.habitLog.deleteMany();
-    await prisma.habit.deleteMany();
+    await supabase.from("habit_logs").delete().eq("workspace_id", workspaceId);
+    await supabase.from("habits").delete().eq("workspace_id", workspaceId);
     return NextResponse.json({ message: "All habits and logs cleared successfully" });
   } catch (error) {
     console.error("Failed to clear data:", error);
-    return NextResponse.json(
-      { error: "Failed to clear habits data" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to clear habits data" }, { status: 500 });
   }
 }
-

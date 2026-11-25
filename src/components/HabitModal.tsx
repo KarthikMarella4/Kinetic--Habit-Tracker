@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useHabits } from "./HabitsProvider";
-import { X, ChevronDown } from "lucide-react";
+import { X, ChevronDown, Zap } from "lucide-react";
 import { GoalScheduleType, HabitFormData } from "@/lib/types";
 
 interface HabitModalProps {
@@ -12,7 +12,16 @@ interface HabitModalProps {
 }
 
 export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalProps) {
-  const { habits, createHabit, updateHabit, deleteHabit, todayIso, tomorrowIso, selectedDayIso } = useHabits();
+  const {
+    habits,
+    createHabit,
+    updateHabit,
+    deleteHabit,
+    getCompletedLogDaysCount,
+    todayIso,
+    tomorrowIso,
+    selectedDayIso,
+  } = useHabits();
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Deep Work");
@@ -21,6 +30,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
   const [color, setColor] = useState("#FF4F00");
   const [target, setTarget] = useState(1);
   const [unit, setUnit] = useState("");
+  const [manualStreak, setManualStreak] = useState(0);
   const [scheduleType, setScheduleType] = useState<GoalScheduleType>("daily");
   const [scheduledDate, setScheduledDate] = useState(tomorrowIso || "");
   const [startDate, setStartDate] = useState(todayIso || "");
@@ -66,6 +76,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
         setColor(h.color);
         setTarget(h.target);
         setUnit(h.unit);
+        setManualStreak(Math.max(0, h.streak || 0));
         setStartDate(h.startDate || todayIso);
         setScheduleType(h.scheduleType || (h.startDate === tomorrowIso ? "schedule" : "daily"));
         setScheduledDate(h.scheduledDate || h.startDate || tomorrowIso);
@@ -88,6 +99,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
       setColor("#FF4F00");
       setTarget(1);
       setUnit("");
+      setManualStreak(0);
       setStartDate(defaultDate);
       setScheduleType("daily");
       setScheduledDate(defaultDate);
@@ -153,6 +165,7 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
       color,
       target: Math.max(1, target),
       unit: unit.trim() || (activeTimer ? "session" : "step"),
+      streak: Math.max(0, Math.floor(manualStreak || 0)),
       timerMinutes: activeTimer && activeTimer > 0 ? activeTimer : undefined,
       startDate: finalStartDate,
       scheduleType,
@@ -511,6 +524,57 @@ export default function HabitModal({ isOpen, editHabitId, onClose }: HabitModalP
               </div>
             </div>
           </div>
+
+          {/* Row 4.5: Manual Streak (No Task Completion Required) */}
+          {(() => {
+            const editingHabit = editHabitId ? habits.find((x) => x.id === editHabitId) : null;
+            const loggedDays = editingHabit ? getCompletedLogDaysCount(editingHabit) : 0;
+            const totalStreak = loggedDays + Math.max(0, manualStreak || 0);
+            return (
+              <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] font-mono uppercase text-zinc-600 dark:text-zinc-300 font-bold flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
+                    <span>Manual Streak (Days)</span>
+                  </label>
+                  <span className="text-[10px] font-mono font-bold text-[#FF4F00]">
+                    Total: {totalStreak}d
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setManualStreak((s) => Math.max(0, s - 1))}
+                    className="w-9 h-9 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-[#FF4F00] font-mono text-base font-bold flex items-center justify-center transition-colors shrink-0"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    max="9999"
+                    value={manualStreak}
+                    onChange={(e) =>
+                      setManualStreak(Math.max(0, parseInt(e.target.value, 10) || 0))
+                    }
+                    className="w-full h-9 py-1 text-center rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-[15px] sm:text-sm font-mono font-bold focus:outline-none focus:border-[#FF4F00] text-zinc-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setManualStreak((s) => Math.min(9999, s + 1))}
+                    className="w-9 h-9 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-[#FF4F00] font-mono text-base font-bold flex items-center justify-center transition-colors shrink-0"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="text-[9.5px] font-mono text-zinc-400 mt-1.5 leading-tight">
+                  {editingHabit
+                    ? `${loggedDays} logged + ${Math.max(0, manualStreak || 0)} manual = ${totalStreak}d (updates without completing tasks)`
+                    : "Optional: add prior streak days without completing today's task"}
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Row 5: Action Buttons */}
           <div className="pt-2 flex items-center gap-2">
