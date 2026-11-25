@@ -262,10 +262,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
         }
         const apiData = await res.json();
         if (Array.isArray(apiData) && apiData.length > 0) {
-          if (loadedHabits === null && !isFreshStarted) {
-            setHabits(apiData);
-            saveLocalHabits(apiData);
-          } else if (loadedHabits !== null && loadedHabits.length === 0 && !isFreshStarted) {
+          if (!isFreshStarted) {
             setHabits(apiData);
             saveLocalHabits(apiData);
           }
@@ -308,6 +305,26 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         syncDateIfRolledOver();
+        // Pull latest habits from Supabase when returning to the app
+        const freshStarted = (() => {
+          try {
+            return localStorage.getItem(FRESH_START_KEY) === "true";
+          } catch (_) {
+            return false;
+          }
+        })();
+        if (!freshStarted && workspaceId && workspaceId.length >= 6) {
+          fetch("/api/habits", { headers: { "x-workspace-id": workspaceId } })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+              if (Array.isArray(data) && data.length > 0) {
+                setHabits(data);
+                saveLocalHabits(data);
+                setSyncStatus("synced");
+              }
+            })
+            .catch(() => {});
+        }
       }
     };
 
@@ -320,7 +337,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", syncDateIfRolledOver);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [realTodayIso, weekOffset, weekStartDay, selectedDayIso]);
+  }, [realTodayIso, weekOffset, weekStartDay, selectedDayIso, workspaceId, saveLocalHabits]);
 
   const setUserName = useCallback((name: string) => {
     const trimmed = name.trim() || "Karthik Marella";
@@ -396,12 +413,18 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
           },
           body: JSON.stringify({ habitId, date, value }),
         });
-        setSyncStatus(res.ok ? "synced" : "offline");
+        if (res.ok) {
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("offline");
+          showToast("Saved locally • Cloud sync offline");
+        }
       } catch (_) {
         setSyncStatus("offline");
+        showToast("Saved locally • Cloud sync offline");
       }
     },
-    [workspaceId]
+    [workspaceId, showToast]
   );
 
   const incrementHabit = useCallback(
@@ -558,9 +581,15 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
             scheduledDate,
           }),
         });
-        setSyncStatus(res.ok ? "synced" : "offline");
+        if (res.ok) {
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("offline");
+          showToast("Saved locally • Cloud sync offline");
+        }
       } catch (_) {
         setSyncStatus("offline");
+        showToast("Saved locally • Cloud sync offline");
       }
     },
     [habits.length, selectedDayIso, todayIso, workspaceId, saveLocalHabits, showToast]
@@ -594,9 +623,15 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
           },
           body: JSON.stringify(sanitizedData),
         });
-        setSyncStatus(res.ok ? "synced" : "offline");
+        if (res.ok) {
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("offline");
+          showToast("Saved locally • Cloud sync offline");
+        }
       } catch (_) {
         setSyncStatus("offline");
+        showToast("Saved locally • Cloud sync offline");
       }
     },
     [workspaceId, saveLocalHabits, showToast]
@@ -624,9 +659,15 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
           },
           body: JSON.stringify({ streak: nextStreak }),
         });
-        setSyncStatus(res.ok ? "synced" : "offline");
+        if (res.ok) {
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("offline");
+          showToast("Saved locally • Cloud sync offline");
+        }
       } catch (_) {
         setSyncStatus("offline");
+        showToast("Saved locally • Cloud sync offline");
       }
     },
     [workspaceId, saveLocalHabits, showToast]
@@ -659,9 +700,15 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
           },
           body: JSON.stringify({ streak: nextStreak }),
         });
-        setSyncStatus(res.ok ? "synced" : "offline");
+        if (res.ok) {
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("offline");
+          showToast("Saved locally • Cloud sync offline");
+        }
       } catch (_) {
         setSyncStatus("offline");
+        showToast("Saved locally • Cloud sync offline");
       }
     },
     [habits, workspaceId, saveLocalHabits, showToast]
@@ -682,9 +729,15 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
           method: "DELETE",
           headers: { "x-workspace-id": workspaceId },
         });
-        setSyncStatus(res.ok ? "synced" : "offline");
+        if (res.ok) {
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("offline");
+          showToast("Saved locally • Cloud sync offline");
+        }
       } catch (_) {
         setSyncStatus("offline");
+        showToast("Saved locally • Cloud sync offline");
       }
     },
     [workspaceId, saveLocalHabits, showToast]
@@ -701,12 +754,18 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
           },
           body: JSON.stringify({ habits: ordered }),
         });
-        setSyncStatus(res.ok ? "synced" : "offline");
+        if (res.ok) {
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("offline");
+          showToast("Saved locally • Cloud sync offline");
+        }
       } catch (_) {
         setSyncStatus("offline");
+        showToast("Saved locally • Cloud sync offline");
       }
     },
-    [workspaceId]
+    [workspaceId, showToast]
   );
 
   const moveHabitUp = useCallback(
