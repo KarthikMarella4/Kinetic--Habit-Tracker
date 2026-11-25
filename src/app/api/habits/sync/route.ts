@@ -35,7 +35,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, syncedHabits: 0, syncedLogs: 0 });
     }
 
-    const habitRows = habits.map((h, idx) => mapHabitToDbRow(h, workspaceId, idx));
+    const normalizedHabits: Habit[] = habits.map((h) => {
+      if (!/^demo-habit-\d+$/.test(h.id)) return h;
+      const scopedId = `${workspaceId}_${h.id}`;
+      return {
+        ...h,
+        id: scopedId,
+        logs: (h.logs || []).map((l) => ({
+          ...l,
+          id: `${workspaceId}_${l.id}`,
+          habitId: scopedId,
+        })),
+      };
+    });
+
+    const habitRows = normalizedHabits.map((h, idx) => mapHabitToDbRow(h, workspaceId, idx));
     const { error: habitsErr } = await supabase
       .from("habits")
       .upsert(habitRows, { onConflict: "id" });
@@ -44,7 +58,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: habitsErr.message }, { status: 500 });
     }
 
-    const logRows = habits.flatMap((h) =>
+    const logRows = normalizedHabits.flatMap((h) =>
       (h.logs || []).map((l) => ({
         id: l.id || `log_${h.id}_${l.date}`,
         habit_id: h.id,

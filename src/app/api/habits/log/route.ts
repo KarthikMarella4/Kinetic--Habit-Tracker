@@ -31,13 +31,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const logId = `log_${habitId}_${date}`;
+    const scopedHabitId = /^demo-habit-\d+$/.test(habitId)
+      ? `${workspaceId}_${habitId}`
+      : habitId;
+    const logId = `log_${scopedHabitId}_${date}`;
     const { data, error } = await supabase
       .from("habit_logs")
       .upsert(
         {
           id: logId,
-          habit_id: habitId,
+          habit_id: scopedHabitId,
           workspace_id: workspaceId,
           date,
           value: Math.max(0, Math.floor(Number(value) || 0)),

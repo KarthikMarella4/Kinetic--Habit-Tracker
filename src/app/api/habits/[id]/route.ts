@@ -6,7 +6,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 
 // PUT /api/habits/:id — update a habit in Supabase
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
+  const { id: rawId } = await params;
   const workspaceId = getRequestWorkspaceId(request.headers);
   if (!workspaceId) {
     return NextResponse.json(
@@ -14,6 +14,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       { status: 400 }
     );
   }
+  const id = /^demo-habit-\d+$/.test(rawId) ? `${workspaceId}_${rawId}` : rawId;
 
   const supabase = createSupabaseClient(workspaceId);
   if (!supabase) {
@@ -78,7 +79,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 // DELETE /api/habits/:id — delete a habit and its logs from Supabase
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
+  const { id: rawId } = await params;
   const workspaceId = getRequestWorkspaceId(request.headers);
   if (!workspaceId) {
     return NextResponse.json(
@@ -86,6 +87,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       { status: 400 }
     );
   }
+  const id = /^demo-habit-\d+$/.test(rawId) ? `${workspaceId}_${rawId}` : rawId;
 
   const supabase = createSupabaseClient(workspaceId);
   if (!supabase) {

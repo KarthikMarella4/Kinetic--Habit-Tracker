@@ -139,6 +139,22 @@ function generateWorkspaceId(): string {
   return `kw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function normalizeDemoIdsForWorkspace(items: Habit[], wsId: string): Habit[] {
+  return items.map((h) => {
+    if (!/^demo-habit-\d+$/.test(h.id)) return h;
+    const scopedId = `${wsId}_${h.id}`;
+    return {
+      ...h,
+      id: scopedId,
+      logs: (h.logs || []).map((l) => ({
+        ...l,
+        id: `${wsId}_${l.id}`,
+        habitId: scopedId,
+      })),
+    };
+  });
+}
+
 export function useHabits() {
   const ctx = useContext(HabitsContext);
   if (!ctx) throw new Error("useHabits must be used within HabitsProvider");
@@ -238,12 +254,14 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
       }
     })();
 
-    const initialLocalHabits =
+    const initialLocalHabits = normalizeDemoIdsForWorkspace(
       loadedHabits !== null
         ? loadedHabits
         : isFreshStarted
         ? []
-        : createDefaultDemoHabits(actualDays);
+        : createDefaultDemoHabits(actualDays, activeWorkspaceId),
+      activeWorkspaceId
+    );
 
     setHabits(initialLocalHabits);
     saveLocalHabits(initialLocalHabits);
@@ -1149,7 +1167,7 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
     setWeekOffset(0);
     const actualDays = getCurrentWeekDays();
     setWeekDays(actualDays);
-    const demoHabits = createDefaultDemoHabits(actualDays);
+    const demoHabits = createDefaultDemoHabits(actualDays, workspaceId);
     saveLocalHabits(demoHabits);
     setHabits(demoHabits);
     const today = actualDays.find((d) => d.isToday) || actualDays[0];
